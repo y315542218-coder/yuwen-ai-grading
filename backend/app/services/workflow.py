@@ -12,6 +12,7 @@ from .. import models
 from ..config import get_settings
 from ..crypto import Cryptor
 from ..database import SessionLocal
+from .image_utils import split_for_vision
 from .model_provider import ModelProvider, ModelProviderError
 from .prompts import GRADING_SYSTEM_PROMPT, build_grading_user_prompt
 
@@ -85,6 +86,16 @@ async def run_grading(submission_id: int) -> None:
             if not student_images:
                 raise RuntimeError("这份试卷还没有上传图片")
 
+            # 每页先给整页（把握版面），紧跟它切出的高清分块（看清笔迹细节）
+            if exam.hires_tiles:
+                settings = get_settings()
+                tile_dir = settings.storage_dir / "tiles" / str(submission.id)
+                expanded: list[str] = []
+                for page in student_images:
+                    expanded.append(page)
+                    expanded.extend(str(t) for t in split_for_vision(page, tile_dir))
+                student_images = expanded
+
             user_prompt = build_grading_user_prompt(
                 exam_name=exam.name,
                 total_score=exam.total_score,
@@ -92,6 +103,7 @@ async def run_grading(submission_id: int) -> None:
                 grading_notes=exam.grading_notes,
                 reference_image_count=len(reference_images),
                 answer_key=exam.answer_key,
+                tiled=exam.hires_tiles,
             )
 
             started = time.monotonic()
@@ -107,6 +119,8 @@ async def run_grading(submission_id: int) -> None:
                 "model": provider.model_name,
                 "thinking": provider.thinking_enabled,
                 "effort": provider.reasoning_effort if provider.thinking_enabled else None,
+                "tiled": exam.hires_tiles,
+                "images": len(reference_images) + len(student_images),
                 "seconds": round(elapsed, 1),
             }
 

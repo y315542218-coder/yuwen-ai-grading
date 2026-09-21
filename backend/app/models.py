@@ -70,6 +70,10 @@ class Exam(TimestampMixin, Base):
     # 并作为权威答案写进后续批改的 prompt。结构：
     # [{"question_no": "...", "reference_answer": "...", "max_score": 0}]
     answer_key: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    # 高清识别模式：整页发给模型会被压到约1300x1300，括号里的拼音、圈划记号会糊掉。
+    # 开启后每页切成小块，每块不被压缩，清晰度约提升3倍，代价是图片数和输入token变多。
+    # 默认关闭（普通模式），密排试卷识别不准时再开。
+    hires_tiles: Mapped[bool] = mapped_column(Boolean, default=False)
 
     submissions: Mapped[list["Submission"]] = relationship(back_populates="exam")
 

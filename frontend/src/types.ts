@@ -12,6 +12,7 @@ export interface Exam {
   reference_images: string[]
   grading_notes?: string | null
   answer_key?: AnswerKeyItem[] | null
+  hires_tiles: boolean
 }
 
 export interface ModelConfig {
@@ -85,6 +86,8 @@ export interface SubmissionDetail extends Submission {
     model?: string
     thinking?: boolean
     effort?: string | null
+    tiled?: boolean
+    images?: number
     seconds?: number
   } | null
 }

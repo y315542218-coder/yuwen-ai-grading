@@ -42,6 +42,7 @@ class ExamOut(BaseModel):
     reference_images: list = []
     grading_notes: Optional[str] = None
     answer_key: Optional[list] = None
+    hires_tiles: bool = False
 
 
 class ExamUpdateIn(BaseModel):
@@ -52,6 +53,7 @@ class ExamUpdateIn(BaseModel):
     reference_text: Optional[str] = None
     grading_notes: Optional[str] = None
     answer_key: Optional[list] = None
+    hires_tiles: Optional[bool] = None
 
 
 class QuestionScoreIn(BaseModel):

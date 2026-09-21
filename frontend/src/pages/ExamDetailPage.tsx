@@ -5,6 +5,7 @@ import {
   Card,
   Input,
   InputNumber,
+  Segmented,
   Space,
   Table,
   Typography,
@@ -167,6 +168,41 @@ export default function ExamDetailPage() {
           onChange={(e) => setReferenceText(e.target.value)}
           autoSize={{ minRows: 6, maxRows: 20 }}
         />
+      </Card>
+
+      <Card title="识别模式">
+        <Space orientation="vertical" size={12} style={{ width: '100%' }}>
+          <Segmented
+            value={exam.hires_tiles ? 'hires' : 'normal'}
+            disabled={saving}
+            onChange={async (v) => {
+              setSaving(true)
+              try {
+                load(await api.updateExam(examId, { hires_tiles: v === 'hires' }))
+                message.success('已保存，下次批改生效')
+              } finally {
+                setSaving(false)
+              }
+            }}
+            options={[
+              { label: '普通模式', value: 'normal' },
+              { label: '高清识别模式', value: 'hires' },
+            ]}
+          />
+          {exam.hires_tiles ? (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              <b>高清识别模式</b>：每页额外切成若干小块一起发送，每块都不会被模型压缩，
+              清晰度约为普通模式的 3 倍。括号里的拼音、被圈出或划掉的小字能看清，
+              适合密排的正式试卷。代价是每份多约 0.03 元、速度略慢。
+            </Text>
+          ) : (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              <b>普通模式</b>：整页直接发送。模型会把大图压缩到约 1300×1300，
+              你这种扫描件约等于缩到 34%，括号里的拼音、圈划记号容易糊掉。
+              适合字大、作答清楚的简单测验，快且省。
+            </Text>
+          )}
+        </Space>
       </Card>
 
       <Card title="补充评分说明">

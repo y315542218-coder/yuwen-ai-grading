@@ -58,6 +58,7 @@ export const api = {
       reference_text?: string
       grading_notes?: string
       answer_key?: AnswerKeyItem[]
+      hires_tiles?: boolean
     },
   ) => client.patch<Exam>(`/exams/${id}`, payload).then((r) => r.data),
   importAnswerKey: (id: number) =>

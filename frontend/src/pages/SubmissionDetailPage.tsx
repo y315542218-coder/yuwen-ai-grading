@@ -105,6 +105,10 @@ export default function SubmissionDetailPage() {
             ) : (
               <Tag>未开思考</Tag>
             )}
+            <Tag color={detail.grading_meta.tiled ? 'geekblue' : undefined}>
+              {detail.grading_meta.tiled ? '高清识别模式' : '普通模式'}
+              {detail.grading_meta.images ? ` · ${detail.grading_meta.images}张图` : ''}
+            </Tag>
             {detail.grading_meta.seconds !== undefined && (
               <Tag>耗时 {detail.grading_meta.seconds}s</Tag>
             )}
