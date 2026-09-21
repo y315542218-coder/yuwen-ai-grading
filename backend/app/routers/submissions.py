@@ -148,6 +148,62 @@ def get_submission_image(submission_id: int, index: int, db: Session = Depends(g
     return FileResponse(paths[index])
 
 
+@router.patch("/submissions/{submission_id}/score", response_model=schemas.SubmissionDetailOut)
+def update_scores(
+    submission_id: int, payload: schemas.ScoreUpdateIn, db: Session = Depends(get_db)
+):
+    """教师手动改分：覆盖AI给的分数，并重算总分。
+
+    改过的题会标 manual_adjusted，方便事后区分哪些分是人工定的。
+    """
+    submission = db.get(models.Submission, submission_id)
+    if submission is None:
+        raise HTTPException(404, "记录不存在")
+    result = dict(submission.result or {})
+    if not result:
+        raise HTTPException(400, "这份试卷还没有批改结果")
+
+    questions = [dict(q) for q in result.get("questions") or []]
+    for item in payload.questions:
+        if item.index < 0 or item.index >= len(questions):
+            raise HTTPException(400, f"题目下标 {item.index} 不存在")
+        q = questions[item.index]
+        max_score = float(q.get("max_score") or 0)
+        if item.score < 0 or item.score > max_score:
+            raise HTTPException(400, f"第 {item.index + 1} 题分数必须在 0~{max_score} 之间")
+        q["score"] = item.score
+        if item.reason is not None:
+            q["reason"] = item.reason
+        if item.reference_answer is not None:
+            q["reference_answer"] = item.reference_answer
+        q["manual_adjusted"] = True
+        # 人工已经定分，不必再提示复核
+        q["manual_review"] = False
+    result["questions"] = questions
+
+    essay = dict(result.get("essay") or {}) if result.get("essay") else None
+    if payload.essay_score is not None:
+        if essay is None:
+            raise HTTPException(400, "这份试卷没有作文部分")
+        essay_max = float(essay.get("max_score") or 0)
+        if payload.essay_score < 0 or payload.essay_score > essay_max:
+            raise HTTPException(400, f"作文分数必须在 0~{essay_max} 之间")
+        essay["score"] = payload.essay_score
+        essay["manual_adjusted"] = True
+        result["essay"] = essay
+
+    total = sum(float(q.get("score") or 0) for q in questions)
+    if essay:
+        total += float(essay.get("score") or 0)
+    result["total_score"] = total
+
+    submission.result = result
+    submission.total_score = total
+    db.commit()
+    db.refresh(submission)
+    return submission
+
+
 @router.post("/submissions/{submission_id}/regrade")
 def regrade_submission(
     submission_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)

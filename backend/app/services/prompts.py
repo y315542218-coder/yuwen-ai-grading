@@ -33,6 +33,7 @@ def build_grading_user_prompt(
     reference_text: str | None,
     grading_notes: str | None,
     reference_image_count: int,
+    answer_key: list | None = None,
 ) -> str:
     """同一场考试的每个学生，这段文字必须完全一致。
 
@@ -41,6 +42,17 @@ def build_grading_user_prompt(
     变成缓存未命中，价格差 50 倍。学生的图片一律拼在最后。
     """
     parts = [f"试卷名称：{exam_name}", f"试卷总分：{total_score}"]
+
+    if answer_key:
+        lines = [
+            f"- {item.get('question_no', '')}（{item.get('max_score', '')}分）："
+            f"{item.get('reference_answer', '')}"
+            for item in answer_key
+        ]
+        parts.append(
+            "\n教师核对过的逐题参考答案（**权威**，与下方原文冲突时以这里为准）：\n"
+            + "\n".join(lines)
+        )
 
     if reference_text:
         parts.append(f"\n参考答案（文本）：\n{reference_text}")

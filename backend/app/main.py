@@ -2,10 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
-from .database import Base, engine
+from .database import Base, engine, ensure_columns
 from .routers import classes, exams, model_configs, submissions
 
 Base.metadata.create_all(bind=engine)
+ensure_columns()
 
 settings = get_settings()
 

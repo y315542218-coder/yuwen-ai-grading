@@ -62,6 +62,10 @@ class Exam(TimestampMixin, Base):
     reference_images: Mapped[list] = mapped_column(JSON, default=list)
     # 教师补充的评分说明，例如"古诗文每错一字扣0.5分"，会一并写进 prompt
     grading_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # 逐题参考答案：首份试卷批改完成后由模型的结果自动填充，之后以教师修改的为准，
+    # 并作为权威答案写进后续批改的 prompt。结构：
+    # [{"question_no": "...", "reference_answer": "...", "max_score": 0}]
+    answer_key: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
 
     submissions: Mapped[list["Submission"]] = relationship(back_populates="exam")
 

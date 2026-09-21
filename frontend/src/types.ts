@@ -1,3 +1,9 @@
+export interface AnswerKeyItem {
+  question_no: string
+  reference_answer: string
+  max_score: number
+}
+
 export interface Exam {
   id: number
   name: string
@@ -5,6 +11,7 @@ export interface Exam {
   reference_text?: string | null
   reference_images: string[]
   grading_notes?: string | null
+  answer_key?: AnswerKeyItem[] | null
 }
 
 export interface ModelConfig {
@@ -47,6 +54,8 @@ export interface GradingResult {
     max_score: number
     reason?: string
     manual_review?: boolean
+    /** 教师手动改过分的题 */
+    manual_adjusted?: boolean
   }[]
   essay?: {
     score: number
@@ -54,6 +63,7 @@ export interface GradingResult {
     strengths?: string[]
     problems?: string[]
     suggestions?: string[]
+    manual_adjusted?: boolean
   } | null
   notes?: string[]
 }

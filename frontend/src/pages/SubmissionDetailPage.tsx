@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Button, Card, Descriptions, Image, Space, Table, Tag, Typography, message } from 'antd'
+import {
+  Button,
+  Card,
+  Descriptions,
+  Image,
+  InputNumber,
+  Space,
+  Table,
+  Tag,
+  Typography,
+  message,
+} from 'antd'
 import { api, imageUrl } from '../api/client'
 import type { SubmissionDetail } from '../types'
 
@@ -10,6 +21,9 @@ export default function SubmissionDetailPage() {
   const { id } = useParams()
   const [detail, setDetail] = useState<SubmissionDetail | null>(null)
   const [regrading, setRegrading] = useState(false)
+  const [edits, setEdits] = useState<Record<number, { score: number }>>({})
+  const [savingScores, setSavingScores] = useState(false)
+  const dirty = Object.keys(edits).length > 0
 
   const refresh = useCallback(() => {
     if (id) api.getSubmission(Number(id)).then(setDetail)
@@ -17,9 +31,40 @@ export default function SubmissionDetailPage() {
 
   useEffect(() => {
     refresh()
+  }, [refresh])
+
+  useEffect(() => {
+    // 批改中才需要自动轮询；教师正在改分时不要把输入刷掉
+    if (dirty || !detail || !['pending', 'processing'].includes(detail.status)) return
     const timer = setInterval(refresh, 4000)
     return () => clearInterval(timer)
-  }, [refresh])
+  }, [refresh, dirty, detail])
+
+  const onEditScore = (index: number, value: number | null) => {
+    if (value === null) return
+    setEdits((prev) => ({ ...prev, [index]: { score: value } }))
+  }
+
+  const onSaveScores = async () => {
+    if (!id) return
+    setSavingScores(true)
+    try {
+      const updated = await api.updateScores(Number(id), {
+        questions: Object.entries(edits).map(([index, v]) => ({
+          index: Number(index),
+          score: v.score,
+        })),
+      })
+      setDetail(updated)
+      setEdits({})
+      message.success(`已保存，总分更新为 ${updated.total_score}`)
+    } catch (e) {
+      const err = e as { response?: { data?: { detail?: string } }; message: string }
+      message.error(err.response?.data?.detail ?? err.message)
+    } finally {
+      setSavingScores(false)
+    }
+  }
 
   const onRegrade = async () => {
     if (!id) return
@@ -84,26 +129,57 @@ export default function SubmissionDetailPage() {
       ) : null}
 
       {result?.questions?.length ? (
-        <Card title="逐题批改">
+        <Card
+          title="逐题批改"
+          extra={
+            <Space>
+              {dirty && <Text type="warning">有未保存的改分</Text>}
+              <Button type="primary" disabled={!dirty} loading={savingScores} onClick={onSaveScores}>
+                保存改分
+              </Button>
+            </Space>
+          }
+        >
+          <Paragraph type="secondary" style={{ fontSize: 12 }}>
+            AI 判分不对时，直接改「得分」这一列，保存后总分会自动重算。
+          </Paragraph>
           <Table
-            rowKey="question_no"
+            rowKey={(_, i) => String(i)}
             dataSource={result.questions}
             pagination={false}
             size="small"
             columns={[
-              { title: '题号', dataIndex: 'question_no', width: 80 },
+              { title: '题号', dataIndex: 'question_no', width: 110 },
               { title: '学生作答', dataIndex: 'student_answer' },
               { title: '参考答案', dataIndex: 'reference_answer' },
               {
                 title: '得分',
-                width: 80,
-                render: (_, r) => `${r.score}/${r.max_score}`,
+                width: 130,
+                render: (_, r, i) => (
+                  <Space size={4}>
+                    <InputNumber
+                      size="small"
+                      min={0}
+                      max={r.max_score}
+                      step={0.5}
+                      style={{ width: 70 }}
+                      value={edits[i]?.score ?? r.score}
+                      onChange={(v) => onEditScore(i, v)}
+                    />
+                    <Text type="secondary">/ {r.max_score}</Text>
+                  </Space>
+                ),
               },
               { title: '原因', dataIndex: 'reason' },
               {
                 title: '',
                 width: 90,
-                render: (_, r) => (r.manual_review ? <Tag color="orange">待复核</Tag> : null),
+                render: (_, r) =>
+                  r.manual_adjusted ? (
+                    <Tag color="purple">已人工改分</Tag>
+                  ) : r.manual_review ? (
+                    <Tag color="orange">待复核</Tag>
+                  ) : null,
               },
             ]}
           />

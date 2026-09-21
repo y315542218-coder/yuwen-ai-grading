@@ -12,7 +12,7 @@ import {
   Upload,
   message,
 } from 'antd'
-import { UploadOutlined } from '@ant-design/icons'
+import { ReloadOutlined, UploadOutlined } from '@ant-design/icons'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Exam, Student, Submission, SubmissionStatus } from '../types'
@@ -35,6 +35,8 @@ export default function SubmissionsPage() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [picked, setPicked] = useState<string[]>([])
   const [grading, setGrading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [lastRefresh, setLastRefresh] = useState<Date>()
 
   useEffect(() => {
     api.listExams().then((list) => {
@@ -45,7 +47,26 @@ export default function SubmissionsPage() {
   }, [])
 
   const refresh = (id?: number) => {
-    if (id) api.listSubmissions(id).then(setSubmissions)
+    if (id)
+      api.listSubmissions(id).then((list) => {
+        setSubmissions(list)
+        setLastRefresh(new Date())
+      })
+  }
+
+  const onManualRefresh = async () => {
+    setRefreshing(true)
+    try {
+      if (examId) {
+        const list = await api.listSubmissions(examId)
+        setSubmissions(list)
+        setLastRefresh(new Date())
+        const running = list.filter((s) => s.status === 'processing').length
+        message.success(running > 0 ? `还有 ${running} 份正在批改` : '已是最新状态')
+      }
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   useEffect(() => {
@@ -116,6 +137,14 @@ export default function SubmissionsPage() {
           <Button type="primary" onClick={onGradeAll} loading={grading} disabled={readyCount === 0}>
             批量批改{readyCount > 0 ? `（${readyCount} 份）` : ''}
           </Button>
+          <Button icon={<ReloadOutlined />} loading={refreshing} onClick={onManualRefresh}>
+            刷新状态
+          </Button>
+          {lastRefresh && (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {lastRefresh.toLocaleTimeString()} 更新
+            </Text>
+          )}
         </Space>
       </Card>
 

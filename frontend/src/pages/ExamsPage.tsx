@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Button, Card, Input, InputNumber, Space, Table, Typography, Upload, message } from 'antd'
 import { UploadOutlined } from '@ant-design/icons'
 import type { UploadFile } from 'antd'
@@ -121,8 +122,10 @@ export default function ExamsPage() {
             },
             {
               title: '操作',
-              width: 80,
+              width: 170,
               render: (_, r: Exam) => (
+                <Space>
+                <Link to={`/exams/${r.id}`}>查看/编辑答案</Link>
                 <Button
                   size="small"
                   danger
@@ -133,6 +136,7 @@ export default function ExamsPage() {
                 >
                   删除
                 </Button>
+                </Space>
               ),
             },
           ]}

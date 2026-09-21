@@ -30,6 +30,29 @@ class ExamOut(BaseModel):
     reference_text: Optional[str] = None
     reference_images: list = []
     grading_notes: Optional[str] = None
+    answer_key: Optional[list] = None
+
+
+class ExamUpdateIn(BaseModel):
+    """全部可选，只改传上来的字段。"""
+
+    name: Optional[str] = None
+    total_score: Optional[float] = None
+    reference_text: Optional[str] = None
+    grading_notes: Optional[str] = None
+    answer_key: Optional[list] = None
+
+
+class QuestionScoreIn(BaseModel):
+    index: int
+    score: float
+    reason: Optional[str] = None
+    reference_answer: Optional[str] = None
+
+
+class ScoreUpdateIn(BaseModel):
+    questions: list[QuestionScoreIn] = []
+    essay_score: Optional[float] = None
 
 
 class SubmissionOut(BaseModel):

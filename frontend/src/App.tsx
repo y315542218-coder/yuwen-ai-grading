@@ -2,6 +2,7 @@ import { Layout, Menu } from 'antd'
 import { Link, Route, Routes, useLocation } from 'react-router-dom'
 import ModelConfigPage from './pages/ModelConfigPage'
 import ExamsPage from './pages/ExamsPage'
+import ExamDetailPage from './pages/ExamDetailPage'
 import StudentsPage from './pages/StudentsPage'
 import SubmissionsPage from './pages/SubmissionsPage'
 import SubmissionDetailPage from './pages/SubmissionDetailPage'
@@ -35,6 +36,7 @@ function App() {
             <Route path="/" element={<SubmissionsPage />} />
             <Route path="/model-config" element={<ModelConfigPage />} />
             <Route path="/exams" element={<ExamsPage />} />
+            <Route path="/exams/:id" element={<ExamDetailPage />} />
             <Route path="/students" element={<StudentsPage />} />
             <Route path="/submissions" element={<SubmissionsPage />} />
             <Route path="/submissions/:id" element={<SubmissionDetailPage />} />

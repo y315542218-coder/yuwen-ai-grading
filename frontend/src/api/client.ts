@@ -1,5 +1,6 @@
 import axios from 'axios'
 import type {
+  AnswerKeyItem,
   ClassGroup,
   Exam,
   ModelConfig,
@@ -43,6 +44,18 @@ export const api = {
     return client.post<Exam>('/exams', form).then((r) => r.data)
   },
   listExams: () => client.get<Exam[]>('/exams').then((r) => r.data),
+  updateExam: (
+    id: number,
+    payload: {
+      name?: string
+      total_score?: number
+      reference_text?: string
+      grading_notes?: string
+      answer_key?: AnswerKeyItem[]
+    },
+  ) => client.patch<Exam>(`/exams/${id}`, payload).then((r) => r.data),
+  importAnswerKey: (id: number) =>
+    client.post<Exam>(`/exams/${id}/answer-key/import`).then((r) => r.data),
   deleteExam: (id: number) => client.delete(`/exams/${id}`).then((r) => r.data),
 
   // 考试下的学生试卷
@@ -66,6 +79,13 @@ export const api = {
   getSubmission: (id: number) =>
     client.get<SubmissionDetail>(`/submissions/${id}`).then((r) => r.data),
   regradeSubmission: (id: number) => client.post(`/submissions/${id}/regrade`).then((r) => r.data),
+  updateScores: (
+    id: number,
+    payload: {
+      questions?: { index: number; score: number; reason?: string; reference_answer?: string }[]
+      essay_score?: number
+    },
+  ) => client.patch<SubmissionDetail>(`/submissions/${id}/score`, payload).then((r) => r.data),
   deleteSubmission: (id: number) => client.delete(`/submissions/${id}`).then((r) => r.data),
 
   // 班级与学生

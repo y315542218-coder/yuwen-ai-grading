@@ -66,6 +66,7 @@ async def run_grading(submission_id: int) -> None:
                 reference_text=exam.reference_text,
                 grading_notes=exam.grading_notes,
                 reference_image_count=len(reference_images),
+                answer_key=exam.answer_key,
             )
 
             raw, usage = await provider.chat(
@@ -74,6 +75,18 @@ async def run_grading(submission_id: int) -> None:
                 image_paths=reference_images + student_images,
             )
             result = parse_json_response(raw)
+
+            # 首份批改完成后，把模型解析出的逐题参考答案回填到考试上，
+            # 教师可以在考试管理里核对修改，之后的批改以修改后的为准。
+            if not exam.answer_key and result.get("questions"):
+                exam.answer_key = [
+                    {
+                        "question_no": q.get("question_no", ""),
+                        "reference_answer": q.get("reference_answer", ""),
+                        "max_score": q.get("max_score", 0),
+                    }
+                    for q in result["questions"]
+                ]
 
             submission.token_usage = usage
             submission.result = result
