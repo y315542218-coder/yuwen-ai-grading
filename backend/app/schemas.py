@@ -30,7 +30,6 @@ class ExamOut(BaseModel):
     reference_text: Optional[str] = None
     reference_images: list = []
     grading_notes: Optional[str] = None
-    pages_per_paper: int
 
 
 class SubmissionOut(BaseModel):
@@ -48,6 +47,7 @@ class SubmissionOut(BaseModel):
 
 class SubmissionDetailOut(SubmissionOut):
     result: Optional[dict[str, Any]] = None
+    token_usage: Optional[dict[str, Any]] = None
 
 
 class ClassGroupIn(BaseModel):
@@ -68,3 +68,12 @@ class StudentIn(BaseModel):
 class StudentOut(StudentIn):
     model_config = ConfigDict(from_attributes=True)
     id: int
+
+
+class StudentBatchIn(BaseModel):
+    names: list[str]
+    class_id: Optional[int] = None
+
+
+class AddStudentsIn(BaseModel):
+    student_ids: list[int]

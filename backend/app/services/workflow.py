@@ -57,22 +57,25 @@ async def run_grading(submission_id: int) -> None:
             reference_images = list(exam.reference_images or [])
             student_images = list(submission.image_paths or [])
 
+            if not student_images:
+                raise RuntimeError("这份试卷还没有上传图片")
+
             user_prompt = build_grading_user_prompt(
                 exam_name=exam.name,
                 total_score=exam.total_score,
                 reference_text=exam.reference_text,
                 grading_notes=exam.grading_notes,
-                student_page_count=len(student_images),
                 reference_image_count=len(reference_images),
             )
 
-            raw = await provider.chat(
+            raw, usage = await provider.chat(
                 system_prompt=GRADING_SYSTEM_PROMPT,
                 user_text=user_prompt,
                 image_paths=reference_images + student_images,
             )
             result = parse_json_response(raw)
 
+            submission.token_usage = usage
             submission.result = result
             submission.total_score = result.get("total_score")
             if not submission.student_name:

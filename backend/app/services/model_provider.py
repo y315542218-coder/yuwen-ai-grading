@@ -71,7 +71,8 @@ class ModelProvider:
         *,
         temperature: float = 0.1,
         response_format_json: bool = True,
-    ) -> str:
+    ) -> tuple[str, dict]:
+        """返回 (模型回复正文, usage)。usage 里含 DeepSeek 的缓存命中token数。"""
         payload: dict[str, Any] = {
             "model": self.model_name,
             "messages": self._build_messages(system_prompt, user_text, image_paths),
@@ -95,12 +96,12 @@ class ModelProvider:
 
         data = resp.json()
         try:
-            return data["choices"][0]["message"]["content"]
+            return data["choices"][0]["message"]["content"], data.get("usage", {})
         except (KeyError, IndexError) as exc:
             raise ModelProviderError(f"模型返回格式异常：{data}") from exc
 
     async def ping(self) -> bool:
-        """“测试连接”按钮使用：发一次最小请求验证 Key 是否有效。"""
+        """"测试连接"按钮使用：发一次最小请求验证 Key 是否有效。"""
         await self.chat(
             system_prompt="你是一个连通性测试助手。",
             user_text='请只回复 JSON：{"ok": true}',

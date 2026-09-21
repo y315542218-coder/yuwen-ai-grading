@@ -17,7 +17,6 @@ IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
 def create_exam(
     name: str = Form(...),
     total_score: float = Form(100),
-    pages_per_paper: int = Form(1),
     grading_notes: str | None = Form(None),
     files: list[UploadFile] = [],
     db: Session = Depends(get_db),
@@ -28,7 +27,6 @@ def create_exam(
     exam = models.Exam(
         name=name,
         total_score=total_score,
-        pages_per_paper=pages_per_paper,
         grading_notes=grading_notes,
         reference_images=[],
     )

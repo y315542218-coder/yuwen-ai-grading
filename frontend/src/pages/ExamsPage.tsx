@@ -12,7 +12,6 @@ export default function ExamsPage() {
   const [exams, setExams] = useState<Exam[]>([])
   const [name, setName] = useState('')
   const [totalScore, setTotalScore] = useState(100)
-  const [pagesPerPaper, setPagesPerPaper] = useState(2)
   const [notes, setNotes] = useState('')
   const [fileList, setFileList] = useState<UploadFile[]>([])
   const [saving, setSaving] = useState(false)
@@ -38,7 +37,6 @@ export default function ExamsPage() {
       await api.createExam({
         name,
         total_score: totalScore,
-        pages_per_paper: pagesPerPaper,
         grading_notes: notes || undefined,
         files,
       })
@@ -77,10 +75,6 @@ export default function ExamsPage() {
               <Input disabled style={{ width: 60 }} value="总分" />
               <InputNumber value={totalScore} onChange={(v) => setTotalScore(v ?? 100)} />
             </Space.Compact>
-            <Space.Compact>
-              <Input disabled style={{ width: 110 }} value="每份试卷页数" />
-              <InputNumber min={1} value={pagesPerPaper} onChange={(v) => setPagesPerPaper(v ?? 1)} />
-            </Space.Compact>
           </Space>
 
           <Upload
@@ -115,7 +109,6 @@ export default function ExamsPage() {
             { title: 'ID', dataIndex: 'id', width: 60 },
             { title: '名称', dataIndex: 'name' },
             { title: '总分', dataIndex: 'total_score', width: 80 },
-            { title: '每份页数', dataIndex: 'pages_per_paper', width: 90 },
             {
               title: '参考答案',
               render: (_, r: Exam) =>

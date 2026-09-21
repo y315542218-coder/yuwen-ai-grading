@@ -5,7 +5,6 @@ export interface Exam {
   reference_text?: string | null
   reference_images: string[]
   grading_notes?: string | null
-  pages_per_paper: number
 }
 
 export interface ModelConfig {
@@ -21,7 +20,7 @@ export interface ProviderPreset {
   default_model: string
 }
 
-export type SubmissionStatus = 'pending' | 'processing' | 'completed' | 'failed'
+export type SubmissionStatus = 'draft' | 'pending' | 'processing' | 'completed' | 'failed'
 
 export interface Submission {
   id: number
@@ -61,6 +60,13 @@ export interface GradingResult {
 
 export interface SubmissionDetail extends Submission {
   result?: GradingResult | null
+  /** DeepSeek 返回的 usage，prompt_cache_hit_tokens 是命中缓存的部分 */
+  token_usage?: {
+    prompt_tokens?: number
+    completion_tokens?: number
+    prompt_cache_hit_tokens?: number
+    prompt_cache_miss_tokens?: number
+  } | null
 }
 
 export interface ClassGroup {

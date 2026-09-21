@@ -48,6 +48,14 @@ export default function SubmissionDetailPage() {
           </Descriptions.Item>
         </Descriptions>
         {detail.error_message && <Paragraph type="danger">{detail.error_message}</Paragraph>}
+        {detail.token_usage && (
+          <Paragraph type="secondary" style={{ fontSize: 12 }}>
+            本次消耗：输入 {detail.token_usage.prompt_tokens ?? '-'} token
+            {detail.token_usage.prompt_cache_hit_tokens !== undefined &&
+              `（其中命中缓存 ${detail.token_usage.prompt_cache_hit_tokens}，缓存部分价格约为未命中的 1/50）`}
+            ，输出 {detail.token_usage.completion_tokens ?? '-'} token
+          </Paragraph>
+        )}
         <Button onClick={onRegrade} loading={regrading}>
           重新批改
         </Button>

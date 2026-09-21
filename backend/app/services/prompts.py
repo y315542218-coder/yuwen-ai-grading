@@ -32,9 +32,14 @@ def build_grading_user_prompt(
     total_score: float,
     reference_text: str | None,
     grading_notes: str | None,
-    student_page_count: int,
     reference_image_count: int,
 ) -> str:
+    """同一场考试的每个学生，这段文字必须完全一致。
+
+    DeepSeek 按前缀命中缓存，参考答案又是整个请求里最长的固定内容，
+    所以这里不能掺入学生姓名、页数等因人而异的信息，否则每份试卷都
+    变成缓存未命中，价格差 50 倍。学生的图片一律拼在最后。
+    """
     parts = [f"试卷名称：{exam_name}", f"试卷总分：{total_score}"]
 
     if reference_text:
@@ -44,7 +49,7 @@ def build_grading_user_prompt(
     if grading_notes:
         parts.append(f"\n教师补充的评分说明：\n{grading_notes}")
 
-    parts.append(f"\n最后 {student_page_count} 张图片是同一名学生的试卷，按页面顺序排列，请整份批改。")
+    parts.append("\n其余图片是同一名学生的整份试卷，按页面顺序排列，请整份批改。")
 
     parts.append(
         """

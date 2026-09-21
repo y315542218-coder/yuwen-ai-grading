@@ -2,6 +2,7 @@ import { Layout, Menu } from 'antd'
 import { Link, Route, Routes, useLocation } from 'react-router-dom'
 import ModelConfigPage from './pages/ModelConfigPage'
 import ExamsPage from './pages/ExamsPage'
+import StudentsPage from './pages/StudentsPage'
 import SubmissionsPage from './pages/SubmissionsPage'
 import SubmissionDetailPage from './pages/SubmissionDetailPage'
 
@@ -9,7 +10,8 @@ const { Header, Content, Sider } = Layout
 
 const NAV_ITEMS = [
   { key: '/model-config', label: <Link to="/model-config">模型配置</Link> },
-  { key: '/exams', label: <Link to="/exams">试卷管理</Link> },
+  { key: '/exams', label: <Link to="/exams">考试管理</Link> },
+  { key: '/students', label: <Link to="/students">学生管理</Link> },
   { key: '/submissions', label: <Link to="/submissions">批改试卷</Link> },
 ]
 
@@ -33,6 +35,7 @@ function App() {
             <Route path="/" element={<SubmissionsPage />} />
             <Route path="/model-config" element={<ModelConfigPage />} />
             <Route path="/exams" element={<ExamsPage />} />
+            <Route path="/students" element={<StudentsPage />} />
             <Route path="/submissions" element={<SubmissionsPage />} />
             <Route path="/submissions/:id" element={<SubmissionDetailPage />} />
           </Routes>

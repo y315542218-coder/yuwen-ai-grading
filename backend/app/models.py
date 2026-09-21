@@ -62,7 +62,6 @@ class Exam(TimestampMixin, Base):
     reference_images: Mapped[list] = mapped_column(JSON, default=list)
     # 教师补充的评分说明，例如"古诗文每错一字扣0.5分"，会一并写进 prompt
     grading_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    pages_per_paper: Mapped[int] = mapped_column(Integer, default=1)
 
     submissions: Mapped[list["Submission"]] = relationship(back_populates="exam")
 
@@ -78,10 +77,12 @@ class Submission(TimestampMixin, Base):
     student_name: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 
     image_paths: Mapped[list] = mapped_column(JSON, default=list)
-    # pending -> processing -> completed / failed
-    status: Mapped[str] = mapped_column(String(32), default="pending")
+    # draft(已建档待上传) -> pending -> processing -> completed / failed
+    status: Mapped[str] = mapped_column(String(32), default="draft")
     total_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     result: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    # 接口返回的 usage，含缓存命中/未命中 token 数，用来核对实际花费
+    token_usage: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     exam: Mapped[Exam] = relationship(back_populates="submissions")

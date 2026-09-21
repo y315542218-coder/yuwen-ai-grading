@@ -1,15 +1,27 @@
 import { useEffect, useState } from 'react'
-import { Button, Card, Select, Space, Table, Tag, Typography, Upload, message } from 'antd'
+import {
+  Button,
+  Card,
+  Modal,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Transfer,
+  Typography,
+  Upload,
+  message,
+} from 'antd'
 import { UploadOutlined } from '@ant-design/icons'
-import type { UploadFile } from 'antd'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
-import type { Exam, Submission, SubmissionStatus } from '../types'
+import type { Exam, Student, Submission, SubmissionStatus } from '../types'
 
 const { Title, Paragraph, Text } = Typography
 
 const STATUS_MAP: Record<SubmissionStatus, { text: string; color: string }> = {
-  pending: { text: '排队中', color: 'default' },
+  draft: { text: '待上传', color: 'default' },
+  pending: { text: '待批改', color: 'gold' },
   processing: { text: '批改中', color: 'blue' },
   completed: { text: '已完成', color: 'green' },
   failed: { text: '失败', color: 'red' },
@@ -19,14 +31,17 @@ export default function SubmissionsPage() {
   const [exams, setExams] = useState<Exam[]>([])
   const [examId, setExamId] = useState<number>()
   const [submissions, setSubmissions] = useState<Submission[]>([])
-  const [fileList, setFileList] = useState<UploadFile[]>([])
-  const [uploading, setUploading] = useState(false)
+  const [students, setStudents] = useState<Student[]>([])
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [picked, setPicked] = useState<string[]>([])
+  const [grading, setGrading] = useState(false)
 
   useEffect(() => {
     api.listExams().then((list) => {
       setExams(list)
-      if (list.length > 0) setExamId(list[0].id)
+      if (list.length > 0) setExamId((cur) => cur ?? list[0].id)
     })
+    api.listStudents().then(setStudents)
   }, [])
 
   const refresh = (id?: number) => {
@@ -35,99 +50,93 @@ export default function SubmissionsPage() {
 
   useEffect(() => {
     refresh(examId)
-    // 批改是后台任务，简单轮询刷新状态
     const timer = setInterval(() => refresh(examId), 4000)
     return () => clearInterval(timer)
   }, [examId])
 
-  const currentExam = exams.find((e) => e.id === examId)
-  const perPaper = currentExam?.pages_per_paper ?? 1
-  const files = fileList.map((f) => f.originFileObj as File).filter(Boolean)
-  const paperCount = perPaper > 0 ? Math.floor(files.length / perPaper) : 0
-  const remainder = perPaper > 0 ? files.length % perPaper : 0
+  const alreadyIn = new Set(submissions.map((s) => s.student_id).filter(Boolean) as number[])
 
-  const onUpload = async () => {
-    if (!examId || files.length === 0) return
-    setUploading(true)
+  const onAddStudents = async () => {
+    if (!examId || picked.length === 0) return
+    await api.addStudentsToExam(examId, picked.map(Number))
+    message.success(`已加入 ${picked.length} 名学生`)
+    setPicked([])
+    setPickerOpen(false)
+    refresh(examId)
+  }
+
+  const onUpload = async (submissionId: number, files: File[]) => {
     try {
-      const created = await api.uploadSubmissions(examId, files)
-      message.success(`已上传 ${created.length} 份试卷，正在批改`)
-      setFileList([])
+      await api.uploadImages(submissionId, files)
+      message.success(`已上传 ${files.length} 张`)
       refresh(examId)
     } catch (e) {
       const err = e as { response?: { data?: { detail?: string } }; message: string }
       message.error(err.response?.data?.detail ?? err.message)
-    } finally {
-      setUploading(false)
     }
   }
+
+  const onGradeAll = async () => {
+    if (!examId) return
+    setGrading(true)
+    try {
+      const { queued } = await api.gradeAll(examId)
+      message.success(queued > 0 ? `已提交 ${queued} 份试卷批改` : '没有待批改的试卷')
+      refresh(examId)
+    } finally {
+      setGrading(false)
+    }
+  }
+
+  const readyCount = submissions.filter(
+    (s) => s.image_paths.length > 0 && ['draft', 'pending', 'failed'].includes(s.status),
+  ).length
 
   return (
     <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <div>
         <Title level={3}>批改试卷</Title>
         <Paragraph type="secondary">
-          按页面顺序上传扫描件，系统按"每份试卷页数"自动分组，每份试卷连同参考答案打包发给AI批改。
+          先选考试，把学生加进来，给每人上传各自的试卷（可多页），最后一次性批量批改。
         </Paragraph>
       </div>
 
       <Card>
-        <Space orientation="vertical" style={{ width: '100%' }} size="middle">
-          <Space wrap>
-            <Select
-              placeholder="选择考试"
-              style={{ width: 260 }}
-              value={examId}
-              onChange={setExamId}
-              options={exams.map((e) => ({ label: e.name, value: e.id }))}
-            />
-            {currentExam && <Text type="secondary">每份试卷 {perPaper} 页</Text>}
-          </Space>
-
-          <Upload
-            multiple
-            accept=".png,.jpg,.jpeg"
-            beforeUpload={() => false}
-            fileList={fileList}
-            onChange={({ fileList }) => setFileList(fileList)}
-          >
-            <Button icon={<UploadOutlined />} disabled={!examId}>
-              选择扫描件（可多选）
-            </Button>
-          </Upload>
-
-          {files.length > 0 && (
-            <Text type={remainder ? 'danger' : 'secondary'}>
-              共 {files.length} 张图片，将分成 {paperCount} 份试卷
-              {remainder ? `，还剩 ${remainder} 张无法整除，请检查页数设置` : ''}
-            </Text>
-          )}
-
-          <Button
-            type="primary"
-            onClick={onUpload}
-            loading={uploading}
-            disabled={!examId || files.length === 0 || remainder !== 0}
-          >
-            上传并开始批改
+        <Space wrap>
+          <Select
+            placeholder="选择考试"
+            style={{ width: 260 }}
+            value={examId}
+            onChange={setExamId}
+            options={exams.map((e) => ({ label: e.name, value: e.id }))}
+          />
+          <Button onClick={() => setPickerOpen(true)} disabled={!examId}>
+            添加学生
+          </Button>
+          <Button type="primary" onClick={onGradeAll} loading={grading} disabled={readyCount === 0}>
+            批量批改{readyCount > 0 ? `（${readyCount} 份）` : ''}
           </Button>
         </Space>
       </Card>
 
-      <Card title="批改记录">
+      <Card title="学生与试卷">
         <Table
           rowKey="id"
           dataSource={submissions}
+          pagination={false}
           columns={[
-            { title: 'ID', dataIndex: 'id', width: 60 },
-            { title: '学生', render: (_, r: Submission) => r.student_name || '-' },
-            { title: '页数', render: (_, r: Submission) => r.image_paths.length, width: 70 },
+            { title: '学生', render: (_, r: Submission) => r.student_name || `#${r.id}` },
+            {
+              title: '试卷',
+              width: 110,
+              render: (_, r: Submission) =>
+                r.image_paths.length ? `${r.image_paths.length} 页` : <Text type="secondary">未上传</Text>,
+            },
             {
               title: '状态',
-              dataIndex: 'status',
               width: 100,
-              render: (s: SubmissionStatus) => (
-                <Tag color={STATUS_MAP[s].color}>{STATUS_MAP[s].text}</Tag>
+              render: (_, r: Submission) => (
+                <Tag color={STATUS_MAP[r.status].color}>{STATUS_MAP[r.status].text}</Tag>
               ),
             },
             { title: '总分', dataIndex: 'total_score', width: 80 },
@@ -138,12 +147,60 @@ export default function SubmissionsPage() {
             },
             {
               title: '操作',
-              width: 80,
-              render: (_, r: Submission) => <Link to={`/submissions/${r.id}`}>查看</Link>,
+              width: 220,
+              render: (_, r: Submission) => (
+                <Space>
+                  <Upload
+                    multiple
+                    accept=".png,.jpg,.jpeg"
+                    showUploadList={false}
+                    beforeUpload={(_file, fileList) => {
+                      // fileList 是本次选中的全部文件，只在最后一个回调里统一提交
+                      if (_file === fileList[fileList.length - 1]) onUpload(r.id, fileList)
+                      return false
+                    }}
+                  >
+                    <Button size="small" icon={<UploadOutlined />}>
+                      {r.image_paths.length ? '追加' : '上传试卷'}
+                    </Button>
+                  </Upload>
+                  {r.image_paths.length > 0 && (
+                    <Button
+                      size="small"
+                      onClick={async () => {
+                        await api.clearImages(r.id)
+                        refresh(examId)
+                      }}
+                    >
+                      清空
+                    </Button>
+                  )}
+                  <Link to={`/submissions/${r.id}`}>查看</Link>
+                </Space>
+              ),
             },
           ]}
         />
       </Card>
+
+      <Modal
+        title="添加学生到这场考试"
+        open={pickerOpen}
+        onOk={onAddStudents}
+        onCancel={() => setPickerOpen(false)}
+        width={640}
+      >
+        <Transfer
+          dataSource={students
+            .filter((s) => !alreadyIn.has(s.id))
+            .map((s) => ({ key: String(s.id), title: s.name }))}
+          titles={['学生名单', '加入本场考试']}
+          targetKeys={picked}
+          onChange={(keys) => setPicked(keys as string[])}
+          render={(item) => item.title}
+          listStyle={{ width: 260, height: 320 }}
+        />
+      </Modal>
     </Space>
   )
 }

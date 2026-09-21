@@ -1,6 +1,4 @@
-"""班级系统（中优先级 / P1）：先给最基础的班级、学生管理和试卷-学生绑定，
-后续的成绩趋势、班级统计在此基础上扩展。
-"""
+"""班级与学生管理：学生可以提前建好，之后直接添加进各场考试。"""
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -25,6 +23,18 @@ def list_classes(db: Session = Depends(get_db)):
     return db.query(models.ClassGroup).all()
 
 
+@router.delete("/class-groups/{class_id}")
+def delete_class(class_id: int, db: Session = Depends(get_db)):
+    group = db.get(models.ClassGroup, class_id)
+    if group is None:
+        raise HTTPException(404, "班级不存在")
+    # 学生保留，只是脱离班级，避免误删掉已有成绩记录的学生
+    db.query(models.Student).filter_by(class_id=class_id).update({"class_id": None})
+    db.delete(group)
+    db.commit()
+    return {"ok": True}
+
+
 @router.post("/students", response_model=schemas.StudentOut)
 def create_student(payload: schemas.StudentIn, db: Session = Depends(get_db)):
     student = models.Student(**payload.model_dump())
@@ -34,24 +44,36 @@ def create_student(payload: schemas.StudentIn, db: Session = Depends(get_db)):
     return student
 
 
+@router.post("/students/batch", response_model=list[schemas.StudentOut])
+def create_students_batch(payload: schemas.StudentBatchIn, db: Session = Depends(get_db)):
+    """一次录入一串姓名，方便直接粘贴班级名单。"""
+    created = []
+    for name in payload.names:
+        name = name.strip()
+        if not name:
+            continue
+        student = models.Student(name=name, class_id=payload.class_id)
+        db.add(student)
+        created.append(student)
+    db.commit()
+    for s in created:
+        db.refresh(s)
+    return created
+
+
 @router.get("/students", response_model=list[schemas.StudentOut])
 def list_students(class_id: int | None = None, db: Session = Depends(get_db)):
     query = db.query(models.Student)
     if class_id is not None:
         query = query.filter_by(class_id=class_id)
-    return query.all()
+    return query.order_by(models.Student.id).all()
 
 
-@router.post("/submissions/{submission_id}/assign-student")
-def assign_student(submission_id: int, student_id: int, db: Session = Depends(get_db)):
-    """教师把一份试卷和学生一一对应后，成绩就计入该学生的历史记录。"""
-    submission = db.get(models.Submission, submission_id)
-    if submission is None:
-        raise HTTPException(404, "试卷记录不存在")
+@router.delete("/students/{student_id}")
+def delete_student(student_id: int, db: Session = Depends(get_db)):
     student = db.get(models.Student, student_id)
     if student is None:
         raise HTTPException(404, "学生不存在")
-
-    submission.student_id = student_id
+    db.delete(student)
     db.commit()
     return {"ok": True}
