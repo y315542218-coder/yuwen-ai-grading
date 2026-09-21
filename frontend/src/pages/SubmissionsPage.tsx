@@ -154,7 +154,14 @@ export default function SubmissionsPage() {
           dataSource={submissions}
           pagination={false}
           columns={[
-            { title: '学生', render: (_, r: Submission) => r.student_name || `#${r.id}` },
+            // 这里显示列表序号而不是数据库 id：id 是全局递增的，
+            // 换一场考试就不从 1 开始，容易被误读成"少了几份"
+            { title: '序号', width: 60, render: (_, __, index: number) => index + 1 },
+            {
+              title: '学生',
+              render: (_, r: Submission) =>
+                r.student_name || <Text type="secondary">未指定</Text>,
+            },
             {
               title: '试卷',
               width: 110,
