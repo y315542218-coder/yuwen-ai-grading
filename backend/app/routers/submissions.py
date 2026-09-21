@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..config import get_settings
 from ..database import get_db
-from ..services.workflow import run_grading
+from ..services.workflow import run_grading, summarize_sections
 
 router = APIRouter(tags=["submissions"])
 
@@ -196,6 +196,7 @@ def update_scores(
     if essay:
         total += float(essay.get("score") or 0)
     result["total_score"] = total
+    result["sections"] = summarize_sections(questions, essay)
 
     submission.result = result
     submission.total_score = total

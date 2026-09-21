@@ -25,7 +25,13 @@ export const api = {
     base_url: string
     model_name: string
     api_key: string
+    thinking_enabled?: boolean
+    reasoning_effort?: string
   }) => client.post<ModelConfig>('/model-configs', payload).then((r) => r.data),
+  updateModelConfig: (
+    id: number,
+    payload: { thinking_enabled?: boolean; reasoning_effort?: string },
+  ) => client.patch<ModelConfig>(`/model-configs/${id}`, payload).then((r) => r.data),
   testModelConfig: (id: number) => client.post(`/model-configs/${id}/test`).then((r) => r.data),
   deleteModelConfig: (id: number) => client.delete(`/model-configs/${id}`).then((r) => r.data),
 

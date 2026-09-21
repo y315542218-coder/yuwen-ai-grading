@@ -27,6 +27,10 @@ class ModelConfig(TimestampMixin, Base):
     model_name: Mapped[str] = mapped_column(String(128))
     api_key_encrypted: Mapped[str] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # 思考模式：开启时模型先输出推理链再给结论，判分更细但输出token会多出好几倍。
+    # 只有 DeepSeek 等支持该参数的模型会用到，其它厂商忽略即可。
+    thinking_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    reasoning_effort: Mapped[str] = mapped_column(String(16), default="high")
 
 
 class ClassGroup(TimestampMixin, Base):
@@ -87,6 +91,9 @@ class Submission(TimestampMixin, Base):
     result: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     # 接口返回的 usage，含缓存命中/未命中 token 数，用来核对实际花费
     token_usage: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    # 本次批改用的模型与参数，以及耗时，用来横向对比不同配置的效果
+    # {"model": "...", "thinking": true, "effort": "high", "seconds": 42.1}
+    grading_meta: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     exam: Mapped[Exam] = relationship(back_populates="submissions")

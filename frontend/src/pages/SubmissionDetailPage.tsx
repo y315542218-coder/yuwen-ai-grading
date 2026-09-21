@@ -97,12 +97,28 @@ export default function SubmissionDetailPage() {
           </Descriptions.Item>
         </Descriptions>
         {detail.error_message && <Paragraph type="danger">{detail.error_message}</Paragraph>}
+        {detail.grading_meta && (
+          <Space size={4} wrap style={{ marginBottom: 8 }}>
+            <Tag>{detail.grading_meta.model}</Tag>
+            {detail.grading_meta.thinking ? (
+              <Tag color="blue">思考模式 {detail.grading_meta.effort}</Tag>
+            ) : (
+              <Tag>未开思考</Tag>
+            )}
+            {detail.grading_meta.seconds !== undefined && (
+              <Tag>耗时 {detail.grading_meta.seconds}s</Tag>
+            )}
+          </Space>
+        )}
         {detail.token_usage && (
           <Paragraph type="secondary" style={{ fontSize: 12 }}>
             本次消耗：输入 {detail.token_usage.prompt_tokens ?? '-'} token
             {detail.token_usage.prompt_cache_hit_tokens !== undefined &&
               `（其中命中缓存 ${detail.token_usage.prompt_cache_hit_tokens}，缓存部分价格约为未命中的 1/50）`}
             ，输出 {detail.token_usage.completion_tokens ?? '-'} token
+            {detail.token_usage.completion_tokens_details?.reasoning_tokens
+              ? `（其中思考 ${detail.token_usage.completion_tokens_details.reasoning_tokens}）`
+              : ''}
           </Paragraph>
         )}
         <Button onClick={onRegrade} loading={regrading}>

@@ -1,9 +1,21 @@
 import { useEffect, useState } from 'react'
-import { Button, Card, Form, Input, Select, Space, Table, Tag, Typography, message } from 'antd'
+import {
+  Button,
+  Card,
+  Form,
+  Input,
+  Select,
+  Space,
+  Switch,
+  Table,
+  Tag,
+  Typography,
+  message,
+} from 'antd'
 import { api } from '../api/client'
 import type { ModelConfig, ProviderPreset } from '../types'
 
-const { Title, Paragraph } = Typography
+const { Title, Paragraph, Text } = Typography
 
 const PROVIDER_LABELS: Record<string, string> = {
   deepseek: 'DeepSeek',
@@ -17,6 +29,7 @@ export default function ModelConfigPage() {
   const [configs, setConfigs] = useState<ModelConfig[]>([])
   const [saving, setSaving] = useState(false)
   const [testingId, setTestingId] = useState<number | null>(null)
+  const [updating, setUpdating] = useState(false)
   const [form] = Form.useForm()
 
   const refresh = () => {
@@ -79,6 +92,20 @@ export default function ModelConfigPage() {
     refresh()
   }
 
+  const activeConfig = configs.find((c) => c.is_active)
+
+  const onUpdate = async (patch: { thinking_enabled?: boolean; reasoning_effort?: string }) => {
+    if (!activeConfig) return
+    setUpdating(true)
+    try {
+      await api.updateModelConfig(activeConfig.id, patch)
+      refresh()
+      message.success('已更新，下次批改生效')
+    } finally {
+      setUpdating(false)
+    }
+  }
+
   return (
     <Space orientation="vertical" size="large" style={{ width: '100%', maxWidth: 640 }}>
       <div>
@@ -120,6 +147,42 @@ export default function ModelConfigPage() {
         </Form>
       </Card>
 
+      <Card title="批改参数">
+        <Paragraph type="secondary">
+          思考模式下模型会先推演一遍再判分，主观题更细致，但输出 token 会多出好几倍、也更慢。
+          关掉能明显省钱提速，代价是判分可能变粗。改完直接对同一份试卷重新批改即可对比效果。
+        </Paragraph>
+        {activeConfig ? (
+          <Space size="large" wrap>
+            <Space>
+              <Text>思考模式</Text>
+              <Switch
+                checked={activeConfig.thinking_enabled}
+                loading={updating}
+                onChange={(v) => onUpdate({ thinking_enabled: v })}
+              />
+              <Text type="secondary">{activeConfig.thinking_enabled ? '开启' : '关闭'}</Text>
+            </Space>
+            <Space>
+              <Text>思考强度</Text>
+              <Select
+                style={{ width: 120 }}
+                value={activeConfig.reasoning_effort}
+                disabled={!activeConfig.thinking_enabled || updating}
+                onChange={(v) => onUpdate({ reasoning_effort: v })}
+                options={[
+                  { label: 'low（最省）', value: 'low' },
+                  { label: 'high（默认）', value: 'high' },
+                  { label: 'max（最细）', value: 'max' },
+                ]}
+              />
+            </Space>
+          </Space>
+        ) : (
+          <Text type="secondary">请先在上方保存一个模型配置</Text>
+        )}
+      </Card>
+
       <Card title="已保存的配置">
         <Table
           rowKey="id"
@@ -128,7 +191,12 @@ export default function ModelConfigPage() {
           columns={[
             { title: '厂商', dataIndex: 'provider', render: (p: string) => PROVIDER_LABELS[p] ?? p },
             { title: '模型', dataIndex: 'model_name' },
-            { title: '地址', dataIndex: 'base_url', ellipsis: true },
+            {
+              title: '思考',
+              width: 90,
+              render: (_, r: ModelConfig) =>
+                r.thinking_enabled ? <Tag color="blue">{r.reasoning_effort}</Tag> : <Tag>关闭</Tag>,
+            },
             {
               title: '状态',
               dataIndex: 'is_active',

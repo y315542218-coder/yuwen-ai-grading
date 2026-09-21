@@ -20,6 +20,8 @@ export interface ModelConfig {
   base_url: string
   model_name: string
   is_active: boolean
+  thinking_enabled: boolean
+  reasoning_effort: string
 }
 
 export interface ProviderPreset {
@@ -76,6 +78,14 @@ export interface SubmissionDetail extends Submission {
     completion_tokens?: number
     prompt_cache_hit_tokens?: number
     prompt_cache_miss_tokens?: number
+    completion_tokens_details?: { reasoning_tokens?: number }
+  } | null
+  /** 本次批改用的模型与参数，用来对比不同配置的效果 */
+  grading_meta?: {
+    model?: string
+    thinking?: boolean
+    effort?: string | null
+    seconds?: number
   } | null
 }
 

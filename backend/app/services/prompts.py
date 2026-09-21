@@ -68,13 +68,10 @@ def build_grading_user_prompt(
 请返回如下JSON结构：
 {
   "student_name": "如果试卷上写了姓名就填，看不清就留空",
-  "total_score": 0,
-  "sections": [
-    {"name": "大题名称，例如 积累运用", "score": 0, "total": 0}
-  ],
   "questions": [
     {
       "question_no": "题号",
+      "section": "所属大题，例如 积累运用",
       "student_answer": "识别到的学生作答",
       "reference_answer": "参考答案",
       "score": 0,
@@ -95,6 +92,7 @@ def build_grading_user_prompt(
 
 questions 里只列出所有客观题和主观题，作文放在 essay 里。
 如果这份试卷没有作文，essay 填 null。
+不要输出总分和各大题小计，这些由程序根据逐题分数自动汇总。
 """
     )
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 
 from sqlalchemy.orm import Session
 
@@ -23,7 +24,13 @@ def get_active_provider(db: Session) -> ModelProvider:
     if config is None:
         raise RuntimeError("尚未配置可用的AI模型，请先在“模型配置”页面填写并保存 API Key。")
     api_key = Cryptor(settings.secret_key).decrypt(config.api_key_encrypted)
-    return ModelProvider(base_url=config.base_url, api_key=api_key, model_name=config.model_name)
+    return ModelProvider(
+        base_url=config.base_url,
+        api_key=api_key,
+        model_name=config.model_name,
+        thinking_enabled=config.thinking_enabled,
+        reasoning_effort=config.reasoning_effort,
+    )
 
 
 def parse_json_response(text: str) -> dict:
@@ -37,6 +44,24 @@ def parse_json_response(text: str) -> dict:
         return json.loads(text)
     except json.JSONDecodeError as exc:
         raise ModelProviderError(f"模型未返回合法JSON：{text[:300]}") from exc
+
+
+def summarize_sections(questions: list, essay: dict | None = None) -> list:
+    """按题目上标的 section 汇总各大题得分，保持题目出现的先后顺序。"""
+    totals: dict[str, dict] = {}
+    for q in questions:
+        name = q.get("section") or "未分类"
+        bucket = totals.setdefault(name, {"name": name, "score": 0.0, "total": 0.0})
+        bucket["score"] += float(q.get("score") or 0)
+        bucket["total"] += float(q.get("max_score") or 0)
+
+    if essay:
+        totals["作文"] = {
+            "name": "作文",
+            "score": float(essay.get("score") or 0),
+            "total": float(essay.get("max_score") or 0),
+        }
+    return list(totals.values())
 
 
 async def run_grading(submission_id: int) -> None:
@@ -69,12 +94,21 @@ async def run_grading(submission_id: int) -> None:
                 answer_key=exam.answer_key,
             )
 
+            started = time.monotonic()
             raw, usage = await provider.chat(
                 system_prompt=GRADING_SYSTEM_PROMPT,
                 user_text=user_prompt,
                 image_paths=reference_images + student_images,
             )
+            elapsed = time.monotonic() - started
             result = parse_json_response(raw)
+
+            submission.grading_meta = {
+                "model": provider.model_name,
+                "thinking": provider.thinking_enabled,
+                "effort": provider.reasoning_effort if provider.thinking_enabled else None,
+                "seconds": round(elapsed, 1),
+            }
 
             # 首份批改完成后，把模型解析出的逐题参考答案回填到考试上，
             # 教师可以在考试管理里核对修改，之后的批改以修改后的为准。
@@ -89,8 +123,18 @@ async def run_grading(submission_id: int) -> None:
                 ]
 
             submission.token_usage = usage
+            # 总分和各大题小计一律由逐题分数汇总得出，不采信模型自己报的数：
+            # 实测非思考模式下模型的求和经常对不上（逐题合计89却报82）。
+            questions = result.get("questions") or []
+            essay = result.get("essay") or None
+            result["model_reported_total"] = result.get("total_score")
+            result["sections"] = summarize_sections(questions, essay)
+            computed = sum(float(q.get("score") or 0) for q in questions)
+            computed += float((essay or {}).get("score") or 0)
+            result["total_score"] = computed
+
             submission.result = result
-            submission.total_score = result.get("total_score")
+            submission.total_score = computed
             if not submission.student_name:
                 submission.student_name = result.get("student_name") or None
             submission.status = "completed"

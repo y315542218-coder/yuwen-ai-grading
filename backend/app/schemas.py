@@ -11,6 +11,8 @@ class ModelConfigIn(BaseModel):
     base_url: str
     model_name: str
     api_key: str
+    thinking_enabled: bool = True
+    reasoning_effort: str = "high"
 
 
 class ModelConfigOut(BaseModel):
@@ -20,6 +22,15 @@ class ModelConfigOut(BaseModel):
     base_url: str
     model_name: str
     is_active: bool
+    thinking_enabled: bool
+    reasoning_effort: str
+
+
+class ModelConfigUpdateIn(BaseModel):
+    """只改批改参数，不用重新填 API Key。"""
+
+    thinking_enabled: Optional[bool] = None
+    reasoning_effort: Optional[str] = None
 
 
 class ExamOut(BaseModel):
@@ -71,6 +82,7 @@ class SubmissionOut(BaseModel):
 class SubmissionDetailOut(SubmissionOut):
     result: Optional[dict[str, Any]] = None
     token_usage: Optional[dict[str, Any]] = None
+    grading_meta: Optional[dict[str, Any]] = None
 
 
 class ClassGroupIn(BaseModel):

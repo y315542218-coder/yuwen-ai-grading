@@ -38,11 +38,21 @@ class ModelProviderError(RuntimeError):
 
 
 class ModelProvider:
-    def __init__(self, base_url: str, api_key: str, model_name: str, timeout: float = 120.0):
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str,
+        model_name: str,
+        timeout: float = 300.0,
+        thinking_enabled: bool = True,
+        reasoning_effort: str = "high",
+    ):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.model_name = model_name
         self.timeout = timeout
+        self.thinking_enabled = thinking_enabled
+        self.reasoning_effort = reasoning_effort
 
     @staticmethod
     def _encode_image(image_path: str | Path) -> str:
@@ -76,8 +86,12 @@ class ModelProvider:
         payload: dict[str, Any] = {
             "model": self.model_name,
             "messages": self._build_messages(system_prompt, user_text, image_paths),
+            # 思考模式下 temperature 会被模型忽略，非思考模式下才生效
             "temperature": temperature,
+            "thinking": {"type": "enabled" if self.thinking_enabled else "disabled"},
         }
+        if self.thinking_enabled:
+            payload["reasoning_effort"] = self.reasoning_effort
         if response_format_json:
             payload["response_format"] = {"type": "json_object"}
 

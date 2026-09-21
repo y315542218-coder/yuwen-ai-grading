@@ -37,9 +37,38 @@ def ensure_columns() -> None:
                 continue
             existing = {c["name"] for c in inspector.get_columns(table.name)}
             for column in table.columns:
-                if column.name in existing:
-                    continue
-                col_type = column.type.compile(engine.dialect)
-                conn.execute(
-                    text(f'ALTER TABLE {table.name} ADD COLUMN "{column.name}" {col_type}')
-                )
+                literal = _default_literal(column)
+
+                if column.name not in existing:
+                    col_type = column.type.compile(engine.dialect)
+                    suffix = f" DEFAULT {literal}" if literal is not None else ""
+                    conn.execute(
+                        text(f'ALTER TABLE {table.name} ADD COLUMN "{column.name}" {col_type}{suffix}')
+                    )
+
+                # ADD COLUMN 不会回填已有行，而 SQLAlchemy 的 default= 只在插入时生效，
+                # 所以非空列必须显式补一次，否则旧数据读出来是 NULL。
+                if literal is not None and not column.nullable:
+                    conn.execute(
+                        text(
+                            f'UPDATE {table.name} SET "{column.name}" = {literal} '
+                            f'WHERE "{column.name}" IS NULL'
+                        )
+                    )
+
+
+def _default_literal(column) -> str | None:
+    """把列的标量默认值转成可直接嵌进 SQL 的字面量，没有则返回 None。"""
+    default = column.default
+    if default is None or not getattr(default, "is_scalar", False):
+        return None
+
+    value = default.arg
+    if isinstance(value, bool):
+        return "1" if value else "0"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, str):
+        escaped = value.replace("'", "''")
+        return f"'{escaped}'"
+    return None

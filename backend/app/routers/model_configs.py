@@ -35,8 +35,27 @@ def create_config(payload: schemas.ModelConfigIn, db: Session = Depends(get_db))
         model_name=payload.model_name,
         api_key_encrypted=cryptor.encrypt(payload.api_key),
         is_active=True,
+        thinking_enabled=payload.thinking_enabled,
+        reasoning_effort=payload.reasoning_effort,
     )
     db.add(config)
+    db.commit()
+    db.refresh(config)
+    return config
+
+
+@router.patch("/{config_id}", response_model=schemas.ModelConfigOut)
+def update_config(
+    config_id: int, payload: schemas.ModelConfigUpdateIn, db: Session = Depends(get_db)
+):
+    """切换思考模式等批改参数，不需要重新填 API Key。"""
+    config = db.get(models.ModelConfig, config_id)
+    if config is None:
+        raise HTTPException(404, "配置不存在")
+
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(config, field, value)
+
     db.commit()
     db.refresh(config)
     return config
