@@ -13,6 +13,7 @@ import {
 } from 'antd'
 import { UploadOutlined } from '@ant-design/icons'
 import { Link } from 'react-router-dom'
+import GradingProgress from '../components/GradingProgress'
 import ModeSwitch from '../components/ModeSwitch'
 import { api, imageUrl } from '../api/client'
 import type { Exam, Student, Submission, SubmissionStatus } from '../types'
@@ -105,6 +106,21 @@ export default function BatchImportPage() {
   const takenStudentIds = new Set(
     submissions.map((s) => s.student_id).filter(Boolean) as number[],
   )
+  // 用已完成试卷的实际耗时估算剩余时间，比写死一个数字准
+  const [avgSeconds, setAvgSeconds] = useState<number>()
+  useEffect(() => {
+    const done = submissions.filter((s) => s.status === 'completed')
+    if (done.length === 0) return
+    Promise.all(done.slice(-5).map((s) => api.getSubmission(s.id))).then((details) => {
+      const times = details
+        .map((d) => d.grading_meta?.seconds)
+        .filter((v): v is number => typeof v === 'number')
+      if (times.length) setAvgSeconds(times.reduce((a, b) => a + b, 0) / times.length)
+    })
+    // 只在完成数量变化时重新估算，避免每次轮询都发一堆请求
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [submissions.filter((s) => s.status === 'completed').length])
+
   const readyCount = submissions.filter(
     (s) => s.image_paths.length > 0 && ['draft', 'pending', 'failed'].includes(s.status),
   ).length
@@ -153,6 +169,8 @@ export default function BatchImportPage() {
           <Button onClick={() => refresh(examId)}>刷新状态</Button>
         </Space>
       </Card>
+
+      <GradingProgress submissions={submissions} avgSeconds={avgSeconds} />
 
       {submissions.length === 0 ? (
         <Empty description="还没有试卷，先在上方导入图片或 PDF" />

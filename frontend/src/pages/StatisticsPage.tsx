@@ -13,6 +13,7 @@ import {
   Typography,
   message,
 } from 'antd'
+import { DownloadOutlined } from '@ant-design/icons'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Exam, ExamStatistics } from '../types'
@@ -82,6 +83,13 @@ export default function StatisticsPage() {
             onClick={onAnalyze}
           >
             {analysis ? '重新生成学情分析' : '生成学情分析'}
+          </Button>
+          <Button
+            icon={<DownloadOutlined />}
+            disabled={!stats?.graded_count}
+            onClick={() => examId && window.open(api.exportUrl(examId), '_blank')}
+          >
+            导出 Excel
           </Button>
         </Space>
       </Card>

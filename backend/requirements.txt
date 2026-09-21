@@ -10,3 +10,4 @@ cryptography>=42
 python-dotenv>=1.0
 pypdfium2>=4
 pillow>=10
+openpyxl>=3.1

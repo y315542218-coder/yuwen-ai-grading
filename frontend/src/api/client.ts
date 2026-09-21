@@ -67,6 +67,7 @@ export const api = {
     client.post<Exam>(`/exams/${id}/answer-key/import`).then((r) => r.data),
   getStatistics: (id: number) =>
     client.get<ExamStatistics>(`/exams/${id}/statistics`).then((r) => r.data),
+  exportUrl: (id: number) => `/api/exams/${id}/export`,
   generateAnalysis: (id: number) =>
     client.post<ExamAnalysis>(`/exams/${id}/analysis`).then((r) => r.data),
   deleteExam: (id: number) => client.delete(`/exams/${id}`).then((r) => r.data),

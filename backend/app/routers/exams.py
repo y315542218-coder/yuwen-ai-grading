@@ -1,7 +1,8 @@
 import datetime as dt
 import shutil
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -10,6 +11,7 @@ from ..database import get_db
 from ..services import pdf_utils
 from ..services.model_provider import ModelProviderError
 from ..services.prompts import ANALYSIS_SYSTEM_PROMPT, build_analysis_prompt
+from ..services.excel_export import build_workbook
 from ..services.statistics import build_statistics
 from ..services.workflow import get_active_provider, parse_json_response
 from ..services.reference_parser import extract_text
@@ -141,6 +143,27 @@ def get_statistics(exam_id: int, db: Session = Depends(get_db)):
     stats = build_statistics(exam, submissions)
     stats["analysis"] = exam.analysis
     return stats
+
+
+@router.get("/{exam_id}/export")
+def export_scores(exam_id: int, db: Session = Depends(get_db)):
+    """导出成绩表 Excel：成绩表、逐题分析、总体情况三个工作表。"""
+    exam = db.get(models.Exam, exam_id)
+    if exam is None:
+        raise HTTPException(404, "考试不存在")
+
+    submissions = db.query(models.Submission).filter_by(exam_id=exam_id).all()
+    stats = build_statistics(exam, submissions)
+    if not stats.get("graded_count"):
+        raise HTTPException(400, "还没有批改完成的试卷，无法导出")
+
+    content = build_workbook(stats, submissions)
+    filename = quote(f"{exam.name}_成绩表.xlsx")
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"},
+    )
 
 
 @router.post("/{exam_id}/analysis")

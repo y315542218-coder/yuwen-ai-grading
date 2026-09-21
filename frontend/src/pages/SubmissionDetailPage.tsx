@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   Affix,
   Button,
@@ -7,6 +7,7 @@ import {
   Descriptions,
   Image,
   InputNumber,
+  Modal,
   Space,
   Table,
   Tag,
@@ -20,6 +21,8 @@ const { Title, Paragraph, Text } = Typography
 
 export default function SubmissionDetailPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [detail, setDetail] = useState<SubmissionDetail | null>(null)
   const [regrading, setRegrading] = useState(false)
   const [edits, setEdits] = useState<Record<number, { score: number }>>({})
@@ -30,6 +33,45 @@ export default function SubmissionDetailPage() {
   const refresh = useCallback(() => {
     if (id) api.getSubmission(Number(id)).then(setDetail)
   }, [id])
+
+  // 同场考试的其它试卷，用于快捷键翻页
+  const [siblings, setSiblings] = useState<number[]>([])
+  useEffect(() => {
+    if (!detail) return
+    api.listSubmissions(detail.exam_id).then((list) => setSiblings(list.map((s) => s.id)))
+  }, [detail?.exam_id])
+
+  const go = useCallback(
+    (step: number) => {
+      const i = siblings.indexOf(Number(id))
+      const next = siblings[i + step]
+      if (next === undefined) {
+        message.info(step > 0 ? '已经是最后一份' : '已经是第一份')
+        return
+      }
+      navigate(`/submissions/${next}`)
+    },
+    [siblings, id, navigate],
+  )
+
+  // 复核要反复翻页改分，键盘比鼠标快得多
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement
+      // 正在输入框里打字时不要抢键
+      if (['INPUT', 'TEXTAREA'].includes(el.tagName) || el.isContentEditable) return
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+
+      if (e.key === 'j' || e.key === 'ArrowRight') go(1)
+      else if (e.key === 'k' || e.key === 'ArrowLeft') go(-1)
+      else if (e.key === 's' && dirty) {
+        e.preventDefault()
+        onSaveScores()
+      } else if (e.key === '?') setShortcutsOpen(true)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   useEffect(() => {
     refresh()
@@ -125,9 +167,21 @@ export default function SubmissionDetailPage() {
               : ''}
           </Paragraph>
         )}
-        <Button onClick={onRegrade} loading={regrading}>
-          重新批改
-        </Button>
+        <Space wrap>
+          <Button onClick={() => go(-1)}>← 上一份</Button>
+          <Button onClick={() => go(1)}>下一份 →</Button>
+          <Button onClick={onRegrade} loading={regrading}>
+            重新批改
+          </Button>
+          <Button type="text" size="small" onClick={() => setShortcutsOpen(true)}>
+            快捷键 ?
+          </Button>
+          {siblings.length > 0 && (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              第 {siblings.indexOf(Number(id)) + 1} / {siblings.length} 份
+            </Text>
+          )}
+        </Space>
       </div>
 
       <Card title={`原卷（${detail.image_paths.length} 页）`}>
@@ -243,6 +297,24 @@ export default function SubmissionDetailPage() {
           ))}
         </Card>
       ) : null}
+
+      <Modal
+        open={shortcutsOpen}
+        onCancel={() => setShortcutsOpen(false)}
+        footer={null}
+        title="快捷键"
+        width={360}
+      >
+        <Descriptions column={1} size="small">
+          <Descriptions.Item label="J / →">下一份试卷</Descriptions.Item>
+          <Descriptions.Item label="K / ←">上一份试卷</Descriptions.Item>
+          <Descriptions.Item label="S">保存改分</Descriptions.Item>
+          <Descriptions.Item label="?">打开本说明</Descriptions.Item>
+        </Descriptions>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          在输入框里打字时快捷键不生效，可以放心填分数。
+        </Text>
+      </Modal>
 
       {/* 题目表格很长、作文在最底部，保存按钮吸底才能随时点到 */}
       {dirty && (

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -66,6 +67,42 @@ def summarize_sections(questions: list, essay: dict | None = None) -> list:
     return list(totals.values())
 
 
+MAX_ATTEMPTS = 3
+# 这些错误重试也没用：Key 不对、余额不足、模型名写错，再试一百次还是一样
+PERMANENT_MARKERS = ("401", "403", "404", "invalid_api_key", "insufficient")
+
+
+async def _chat_with_retry(
+    provider: ModelProvider, user_prompt: str, image_paths: list[str]
+) -> tuple[str, dict, int]:
+    """调模型，失败自动重试。返回（回复, usage, 实际尝试次数）。
+
+    接口偶发超时、连接重置、返回非法JSON 都是暂时性的，重试往往就过去了；
+    但认证和额度类错误重试没有意义，直接抛出去让教师看到原因。
+    """
+    last_error: Exception | None = None
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            raw, usage = await provider.chat(
+                system_prompt=GRADING_SYSTEM_PROMPT,
+                user_text=user_prompt,
+                image_paths=image_paths,
+            )
+            parse_json_response(raw)  # JSON 不合法也算失败，值得重试
+            return raw, usage, attempt
+        except ModelProviderError as exc:
+            message = str(exc)
+            if any(m in message for m in PERMANENT_MARKERS):
+                raise
+            last_error = exc
+            if attempt < MAX_ATTEMPTS:
+                wait = 2 ** attempt
+                logger.warning("第%d次调用失败，%d秒后重试：%s", attempt, wait, message[:120])
+                await asyncio.sleep(wait)
+
+    raise ModelProviderError(f"连续 {MAX_ATTEMPTS} 次调用均失败：{last_error}")
+
+
 async def run_grading(submission_id: int) -> None:
     """后台任务入口：批改一份试卷。后台任务不能复用请求的DB会话，这里单开一个。"""
     db = SessionLocal()
@@ -107,10 +144,8 @@ async def run_grading(submission_id: int) -> None:
             )
 
             started = time.monotonic()
-            raw, usage = await provider.chat(
-                system_prompt=GRADING_SYSTEM_PROMPT,
-                user_text=user_prompt,
-                image_paths=reference_images + student_images,
+            raw, usage, attempts = await _chat_with_retry(
+                provider, user_prompt, reference_images + student_images
             )
             elapsed = time.monotonic() - started
             result = parse_json_response(raw)
@@ -122,6 +157,7 @@ async def run_grading(submission_id: int) -> None:
                 "tiled": exam.hires_tiles,
                 "images": len(reference_images) + len(student_images),
                 "seconds": round(elapsed, 1),
+                "attempts": attempts,
             }
 
             # 首份批改完成后，把模型解析出的逐题参考答案回填到考试上，
