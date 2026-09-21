@@ -13,6 +13,13 @@ venv/
 # Runtime storage (uploaded scans, generated crops)
 backend/storage/
 
+# 放在项目根目录的真实试卷与参考答案：体积大，且扫描件上有学生姓名和作答，
+# 只留在本地不进版本库。开头的 / 限定只匹配根目录，不影响 frontend 里的图片。
+/*.png
+/*.jpg
+/*.jpeg
+/*.docx
+
 # Node / frontend
 frontend/node_modules/
 frontend/dist/
