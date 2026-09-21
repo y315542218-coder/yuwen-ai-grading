@@ -1,5 +1,6 @@
 import shutil
 import time
+from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse
@@ -8,11 +9,31 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..config import get_settings
 from ..database import get_db
+from ..services import pdf_utils
 from ..services.workflow import run_grading, summarize_sections
 
 router = APIRouter(tags=["submissions"])
 
 GRADABLE_STATUSES = {"draft", "pending", "failed"}
+
+
+def _save_pages(file: UploadFile, target_dir: Path) -> list[str]:
+    """保存一个上传文件，返回它对应的页面图片路径。
+
+    学生作答是手写的，必须以图片交给模型，所以 PDF 一律按页渲染成图片。
+    """
+    target_dir.mkdir(parents=True, exist_ok=True)
+    dest = target_dir / f"{int(time.time() * 1000)}_{file.filename}"
+    with dest.open("wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    if pdf_utils.is_pdf(dest):
+        pages = pdf_utils.render_to_images(dest, target_dir, dest.stem)
+        if not pages:
+            raise HTTPException(400, f"{file.filename} 里没有可用的页面")
+        return [str(p) for p in pages]
+
+    return [str(dest)]
 
 
 @router.post("/exams/{exam_id}/students", response_model=list[schemas.SubmissionOut])
@@ -71,12 +92,8 @@ def bulk_upload(exam_id: int, files: list[UploadFile], db: Session = Depends(get
         db.flush()
 
         target_dir = settings.storage_dir / "submissions" / str(exam_id) / str(submission.id)
-        target_dir.mkdir(parents=True, exist_ok=True)
-        dest = target_dir / f"{int(time.time() * 1000)}_{file.filename}"
-        with dest.open("wb") as f:
-            shutil.copyfileobj(file.file, f)
-
-        submission.image_paths = [str(dest)]
+        # 一个多页 PDF 视为同一份试卷；若其实是整班扫在一起，用"拆分"按钮拆开即可
+        submission.image_paths = _save_pages(file, target_dir)
         submission.status = "pending"
         created.append(submission)
 
@@ -115,6 +132,41 @@ def merge_submissions(
     db.commit()
     db.refresh(target)
     return target
+
+
+@router.post("/submissions/{submission_id}/split", response_model=list[schemas.SubmissionOut])
+def split_submission(submission_id: int, db: Session = Depends(get_db)):
+    """把一份多页试卷拆成每页一份。
+
+    整班扫进同一个 PDF 时用得上：先拆开，再按学生拖拽合并。
+    """
+    submission = db.get(models.Submission, submission_id)
+    if submission is None:
+        raise HTTPException(404, "记录不存在")
+
+    paths = list(submission.image_paths or [])
+    if len(paths) < 2:
+        raise HTTPException(400, "只有一页，无需拆分")
+
+    submission.image_paths = [paths[0]]
+    submission.result = None
+    submission.total_score = None
+    submission.status = "pending"
+
+    created = [submission]
+    for path in paths[1:]:
+        extra = models.Submission(
+            exam_id=submission.exam_id,
+            image_paths=[path],
+            status="pending",
+        )
+        db.add(extra)
+        created.append(extra)
+
+    db.commit()
+    for s in created:
+        db.refresh(s)
+    return created
 
 
 @router.patch("/submissions/{submission_id}", response_model=schemas.SubmissionOut)
@@ -157,14 +209,10 @@ def upload_images(
 
     settings = get_settings()
     target_dir = settings.storage_dir / "submissions" / str(submission.exam_id) / str(submission.id)
-    target_dir.mkdir(parents=True, exist_ok=True)
 
     paths = list(submission.image_paths or [])
     for file in files:
-        dest = target_dir / f"{int(time.time() * 1000)}_{file.filename}"
-        with dest.open("wb") as f:
-            shutil.copyfileobj(file.file, f)
-        paths.append(str(dest))
+        paths.extend(_save_pages(file, target_dir))
 
     submission.image_paths = paths
     if submission.status == "draft" and paths:

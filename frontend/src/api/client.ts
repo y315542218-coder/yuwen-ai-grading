@@ -85,6 +85,8 @@ export const api = {
     client
       .post<Submission>(`/submissions/${targetId}/merge`, { source_ids: sourceIds })
       .then((r) => r.data),
+  splitSubmission: (id: number) =>
+    client.post<Submission[]>(`/submissions/${id}/split`).then((r) => r.data),
   setSubmissionStudent: (id: number, studentId: number | null) =>
     client.patch<Submission>(`/submissions/${id}`, { student_id: studentId }).then((r) => r.data),
   gradeAll: (examId: number) =>

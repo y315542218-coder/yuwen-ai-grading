@@ -181,7 +181,7 @@ export default function SubmissionsPage() {
                 <Space>
                   <Upload
                     multiple
-                    accept=".png,.jpg,.jpeg"
+                    accept=".png,.jpg,.jpeg,.pdf"
                     showUploadList={false}
                     beforeUpload={(_file, fileList) => {
                       // fileList 是本次选中的全部文件，只在最后一个回调里统一提交

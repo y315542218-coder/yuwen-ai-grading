@@ -59,7 +59,7 @@ export default function BatchImportPage() {
     setUploading(true)
     try {
       const created = await api.bulkUpload(examId, files)
-      message.success(`已导入 ${created.length} 张图片，每张先作为一份试卷`)
+      message.success(`已导入 ${created.length} 份试卷`)
       refresh(examId)
     } catch (e) {
       const err = e as { response?: { data?: { detail?: string } }; message: string }
@@ -113,7 +113,7 @@ export default function BatchImportPage() {
       <div>
         <Title level={3}>批量导入</Title>
         <Paragraph type="secondary">
-          适合小测验：先把扫描件一次性全传进来，每张图片各成一份试卷；
+          适合小测验：先把扫描件一次性全传进来，每张图片各成一份试卷，PDF 按整份导入（多页会一起）；
           多页的试卷<b>把一张卡片拖到另一张上即可合并</b>；学生姓名可以随后再选，不选也能批改。
         </Paragraph>
       </div>
@@ -129,7 +129,7 @@ export default function BatchImportPage() {
           />
           <Upload
             multiple
-            accept=".png,.jpg,.jpeg"
+            accept=".png,.jpg,.jpeg,.pdf"
             showUploadList={false}
             beforeUpload={(file, fileList) => {
               if (file === fileList[fileList.length - 1]) onUpload(fileList)
@@ -137,7 +137,7 @@ export default function BatchImportPage() {
             }}
           >
             <Button icon={<UploadOutlined />} loading={uploading} disabled={!examId}>
-              批量导入图片
+              批量导入（图片 / PDF）
             </Button>
           </Upload>
           <Button type="primary" onClick={onGradeAll} loading={grading} disabled={readyCount === 0}>
@@ -148,7 +148,7 @@ export default function BatchImportPage() {
       </Card>
 
       {submissions.length === 0 ? (
-        <Empty description="还没有试卷，先在上方导入图片" />
+        <Empty description="还没有试卷，先在上方导入图片或 PDF" />
       ) : (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
           {submissions.map((s) => (
@@ -213,6 +213,18 @@ export default function BatchImportPage() {
 
                 <Space size={8}>
                   <Link to={`/submissions/${s.id}`}>查看</Link>
+                  {s.image_paths.length > 1 && (
+                    <Button
+                      size="small"
+                      onClick={async () => {
+                        const parts = await api.splitSubmission(s.id)
+                        message.success(`已拆成 ${parts.length} 份，每页一份`)
+                        refresh(examId)
+                      }}
+                    >
+                      拆分
+                    </Button>
+                  )}
                   <Button
                     size="small"
                     danger

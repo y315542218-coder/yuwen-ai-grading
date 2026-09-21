@@ -59,7 +59,7 @@ export default function ExamsPage() {
       <div>
         <Title level={3}>考试 / 参考答案</Title>
         <Paragraph type="secondary">
-          上传参考答案即可。Word和文本会被提取成文字，图片会直接作为参考图发给模型。
+          上传参考答案即可。Word、文本和带文字层的 PDF 会被提取成文字；扫描版 PDF 和图片会直接作为参考图发给模型。
         </Paragraph>
       </div>
 
@@ -80,12 +80,12 @@ export default function ExamsPage() {
 
           <Upload
             multiple
-            accept=".docx,.txt,.md,.png,.jpg,.jpeg"
+            accept=".docx,.txt,.md,.pdf,.png,.jpg,.jpeg"
             beforeUpload={() => false}
             fileList={fileList}
             onChange={({ fileList }) => setFileList(fileList)}
           >
-            <Button icon={<UploadOutlined />}>上传参考答案（Word / 文本 / 图片）</Button>
+            <Button icon={<UploadOutlined />}>上传参考答案（Word / PDF / 文本 / 图片）</Button>
           </Upload>
 
           <div>

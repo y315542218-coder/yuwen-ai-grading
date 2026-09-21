@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..config import get_settings
 from ..database import get_db
+from ..services import pdf_utils
 from ..services.reference_parser import extract_text
 
 router = APIRouter(prefix="/exams", tags=["exams"])
@@ -45,6 +46,14 @@ def create_exam(
 
         if dest.suffix.lower() in IMAGE_SUFFIXES:
             images.append(str(dest))
+        elif pdf_utils.is_pdf(dest):
+            # 有文字层就直接取字（省 token）；扫描版 PDF 没有文字层，只能转成图片
+            if pdf_utils.has_text_layer(dest):
+                texts.append(pdf_utils.extract_text(dest))
+            else:
+                images.extend(
+                    str(p) for p in pdf_utils.render_to_images(dest, exam_dir, dest.stem)
+                )
         else:
             try:
                 texts.append(extract_text(dest))
