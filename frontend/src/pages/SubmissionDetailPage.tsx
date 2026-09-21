@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
+  Affix,
   Button,
   Card,
   Descriptions,
@@ -22,8 +23,9 @@ export default function SubmissionDetailPage() {
   const [detail, setDetail] = useState<SubmissionDetail | null>(null)
   const [regrading, setRegrading] = useState(false)
   const [edits, setEdits] = useState<Record<number, { score: number }>>({})
+  const [essayEdit, setEssayEdit] = useState<number>()
   const [savingScores, setSavingScores] = useState(false)
-  const dirty = Object.keys(edits).length > 0
+  const dirty = Object.keys(edits).length > 0 || essayEdit !== undefined
 
   const refresh = useCallback(() => {
     if (id) api.getSubmission(Number(id)).then(setDetail)
@@ -54,9 +56,11 @@ export default function SubmissionDetailPage() {
           index: Number(index),
           score: v.score,
         })),
+        essay_score: essayEdit,
       })
       setDetail(updated)
       setEdits({})
+      setEssayEdit(undefined)
       message.success(`已保存，总分更新为 ${updated.total_score}`)
     } catch (e) {
       const err = e as { response?: { data?: { detail?: string } }; message: string }
@@ -129,19 +133,9 @@ export default function SubmissionDetailPage() {
       ) : null}
 
       {result?.questions?.length ? (
-        <Card
-          title="逐题批改"
-          extra={
-            <Space>
-              {dirty && <Text type="warning">有未保存的改分</Text>}
-              <Button type="primary" disabled={!dirty} loading={savingScores} onClick={onSaveScores}>
-                保存改分
-              </Button>
-            </Space>
-          }
-        >
+        <Card title="逐题批改">
           <Paragraph type="secondary" style={{ fontSize: 12 }}>
-            AI 判分不对时，直接改「得分」这一列，保存后总分会自动重算。
+            AI 判分不对时，直接改「得分」这一列，作文分也可以改，最后一起保存，总分自动重算。
           </Paragraph>
           <Table
             rowKey={(_, i) => String(i)}
@@ -187,11 +181,23 @@ export default function SubmissionDetailPage() {
       ) : null}
 
       {result?.essay ? (
-        <Card title="作文">
+        <Card
+          title="作文"
+          extra={result.essay.manual_adjusted ? <Tag color="purple">已人工改分</Tag> : null}
+        >
           <Space orientation="vertical">
-            <Text strong>
-              得分：{result.essay.score} / {result.essay.max_score}
-            </Text>
+            <Space>
+              <Text strong>得分：</Text>
+              <InputNumber
+                min={0}
+                max={result.essay.max_score}
+                step={0.5}
+                style={{ width: 90 }}
+                value={essayEdit ?? result.essay.score}
+                onChange={(v) => v !== null && setEssayEdit(v)}
+              />
+              <Text type="secondary">/ {result.essay.max_score}</Text>
+            </Space>
             {!!result.essay.strengths?.length && (
               <Text type="success">优点：{result.essay.strengths.join('；')}</Text>
             )}
@@ -212,6 +218,28 @@ export default function SubmissionDetailPage() {
           ))}
         </Card>
       ) : null}
+
+      {/* 题目表格很长、作文在最底部，保存按钮吸底才能随时点到 */}
+      {dirty && (
+        <Affix offsetBottom={16}>
+          <Card styles={{ body: { padding: 12 } }}>
+            <Space>
+              <Text type="warning">有未保存的改分</Text>
+              <Button type="primary" loading={savingScores} onClick={onSaveScores}>
+                保存改分
+              </Button>
+              <Button
+                onClick={() => {
+                  setEdits({})
+                  setEssayEdit(undefined)
+                }}
+              >
+                撤销
+              </Button>
+            </Space>
+          </Card>
+        </Affix>
+      )}
     </Space>
   )
 }
