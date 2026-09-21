@@ -1,4 +1,5 @@
-import { Layout, Menu } from 'antd'
+import { Button, ConfigProvider, Layout, Menu, Space, Tooltip, theme as antdTheme } from 'antd'
+import { MoonOutlined, QuestionCircleOutlined, SunOutlined } from '@ant-design/icons'
 import { Link, Route, Routes, useLocation } from 'react-router-dom'
 import ModelConfigPage from './pages/ModelConfigPage'
 import ExamsPage from './pages/ExamsPage'
@@ -8,6 +9,8 @@ import SubmissionsPage from './pages/SubmissionsPage'
 import BatchImportPage from './pages/BatchImportPage'
 import StatisticsPage from './pages/StatisticsPage'
 import SubmissionDetailPage from './pages/SubmissionDetailPage'
+import { GuideDrawer, WelcomeModal, useOnboarding } from './components/Onboarding'
+import { useThemeMode } from './theme'
 
 const { Header, Content, Sider } = Layout
 
@@ -22,34 +25,74 @@ const NAV_ITEMS = [
 
 function App() {
   const location = useLocation()
-  const selectedKey = NAV_ITEMS.find((item) => location.pathname.startsWith(item.key))?.key ?? '/submissions'
+  const { mode, toggle } = useThemeMode()
+  const { welcomeOpen, setWelcomeOpen, guideOpen, setGuideOpen } = useOnboarding()
+  const dark = mode === 'dark'
+
+  const selectedKey =
+    NAV_ITEMS.find((item) => location.pathname.startsWith(item.key))?.key ?? '/submissions'
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Header style={{ display: 'flex', alignItems: 'center' }}>
-        <div style={{ color: '#fff', fontSize: 18, fontWeight: 600, marginRight: 40 }}>
-          语文试卷AI批改系统
-        </div>
-      </Header>
-      <Layout>
-        <Sider width={180} theme="light">
-          <Menu mode="inline" selectedKeys={[selectedKey]} items={NAV_ITEMS} style={{ height: '100%' }} />
-        </Sider>
-        <Content style={{ padding: 24 }}>
-          <Routes>
-            <Route path="/" element={<SubmissionsPage />} />
-            <Route path="/model-config" element={<ModelConfigPage />} />
-            <Route path="/exams" element={<ExamsPage />} />
-            <Route path="/exams/:id" element={<ExamDetailPage />} />
-            <Route path="/students" element={<StudentsPage />} />
-            <Route path="/submissions" element={<SubmissionsPage />} />
-            <Route path="/batch" element={<BatchImportPage />} />
-            <Route path="/statistics" element={<StatisticsPage />} />
-            <Route path="/submissions/:id" element={<SubmissionDetailPage />} />
-          </Routes>
-        </Content>
+    <ConfigProvider
+      theme={{ algorithm: dark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm }}
+    >
+      <Layout style={{ minHeight: '100vh' }}>
+        <Header style={{ display: 'flex', alignItems: 'center', paddingInline: 24 }}>
+          <div style={{ color: '#fff', fontSize: 18, fontWeight: 600, flex: 1 }}>
+            语文试卷AI批改系统
+          </div>
+          <Space>
+            <Button
+              type="text"
+              style={{ color: '#fff' }}
+              icon={<QuestionCircleOutlined />}
+              onClick={() => setGuideOpen(true)}
+            >
+              使用教程
+            </Button>
+            <Tooltip title={dark ? '切换到日间模式' : '切换到夜间模式'}>
+              <Button
+                type="text"
+                style={{ color: '#fff' }}
+                icon={dark ? <SunOutlined /> : <MoonOutlined />}
+                onClick={toggle}
+              />
+            </Tooltip>
+          </Space>
+        </Header>
+        <Layout>
+          <Sider width={180} theme={dark ? 'dark' : 'light'}>
+            <Menu
+              mode="inline"
+              theme={dark ? 'dark' : 'light'}
+              selectedKeys={[selectedKey]}
+              items={NAV_ITEMS}
+              style={{ height: '100%' }}
+            />
+          </Sider>
+          <Content style={{ padding: 24 }}>
+            <Routes>
+              <Route path="/" element={<SubmissionsPage />} />
+              <Route path="/model-config" element={<ModelConfigPage />} />
+              <Route path="/exams" element={<ExamsPage />} />
+              <Route path="/exams/:id" element={<ExamDetailPage />} />
+              <Route path="/students" element={<StudentsPage />} />
+              <Route path="/submissions" element={<SubmissionsPage />} />
+              <Route path="/batch" element={<BatchImportPage />} />
+              <Route path="/statistics" element={<StatisticsPage />} />
+              <Route path="/submissions/:id" element={<SubmissionDetailPage />} />
+            </Routes>
+          </Content>
+        </Layout>
       </Layout>
-    </Layout>
+
+      <WelcomeModal
+        open={welcomeOpen}
+        onClose={() => setWelcomeOpen(false)}
+        onOpenGuide={() => setGuideOpen(true)}
+      />
+      <GuideDrawer open={guideOpen} onClose={() => setGuideOpen(false)} />
+    </ConfigProvider>
   )
 }
 

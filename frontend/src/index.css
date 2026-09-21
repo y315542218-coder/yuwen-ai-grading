@@ -12,8 +12,5 @@ body {
   margin: 0;
 }
 
-/* 应用用的是 antd 浅色主题，固定 light 可避免深色系统主题把
-   滚动条、输入框等浏览器原生控件渲染成深色 */
-:root {
-  color-scheme: light;
-}
+/* color-scheme 由 src/theme.ts 按当前主题动态设置在 <html> 上，
+   这样滚动条和输入框等浏览器原生控件会跟着日间/夜间模式一起变色。 */
