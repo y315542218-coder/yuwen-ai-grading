@@ -24,7 +24,9 @@ if not exist "%BACKEND%\.venv\Scripts\python.exe" (
 
 if not exist "%BACKEND%\.env" (
     echo [后端] 生成配置文件 .env
-    copy "%BACKEND%\.env.example" "%BACKEND%\.env" >nul
+    rem SECRET_KEY 用来加密数据库里的 API Key，必须每台机器随机生成。
+    rem 不能直接复制 .env.example，那里面的占位符是公开在代码仓库里的。
+    "%BACKEND%\.venv\Scripts\python.exe" "%BACKEND%\scripts\init_env.py"
 )
 
 if not exist "%FRONTEND%\node_modules" (
