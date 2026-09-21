@@ -70,7 +70,10 @@ export const api = {
   exportUrl: (id: number) => `/api/exams/${id}/export`,
   generateAnalysis: (id: number) =>
     client.post<ExamAnalysis>(`/exams/${id}/analysis`).then((r) => r.data),
-  deleteExam: (id: number) => client.delete(`/exams/${id}`).then((r) => r.data),
+  deleteExam: (id: number) =>
+    client
+      .delete<{ deleted_submissions: number; freed_bytes: number }>(`/exams/${id}`)
+      .then((r) => r.data),
 
   // 考试下的学生试卷
   addStudentsToExam: (examId: number, studentIds: number[]) =>

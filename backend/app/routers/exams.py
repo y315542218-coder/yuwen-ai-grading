@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..config import get_settings
 from ..database import get_db
-from ..services import pdf_utils
+from ..services import cleanup, pdf_utils
 from ..services.model_provider import ModelProviderError
 from ..services.prompts import ANALYSIS_SYSTEM_PROMPT, build_analysis_prompt
 from ..services.excel_export import build_workbook
@@ -201,10 +201,20 @@ async def generate_analysis(exam_id: int, db: Session = Depends(get_db)):
 
 @router.delete("/{exam_id}")
 def delete_exam(exam_id: int, db: Session = Depends(get_db)):
+    """删除考试，连同它下面的所有试卷记录和磁盘文件。不可恢复。"""
     exam = db.get(models.Exam, exam_id)
     if exam is None:
         raise HTTPException(404, "试卷不存在")
-    db.query(models.Submission).filter_by(exam_id=exam_id).delete()
+
+    submissions = db.query(models.Submission).filter_by(exam_id=exam_id).all()
+
+    # 只删数据库行会在磁盘上留下一堆再也找不到归属的图片
+    freed = cleanup.remove_files(exam.reference_images or [])
+    for submission in submissions:
+        freed += cleanup.remove_files(submission.image_paths or [])
+        cleanup.remove_tiles(submission.id)
+        db.delete(submission)
+
     db.delete(exam)
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "deleted_submissions": len(submissions), "freed_bytes": freed}

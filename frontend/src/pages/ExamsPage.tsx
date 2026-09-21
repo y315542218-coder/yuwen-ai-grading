@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, Card, Input, InputNumber, Space, Table, Typography, Upload, message } from 'antd'
+import {
+  Button,
+  Card,
+  Input,
+  InputNumber,
+  Modal,
+  Space,
+  Table,
+  Typography,
+  Upload,
+  message,
+} from 'antd'
 import { UploadOutlined } from '@ant-design/icons'
 import type { UploadFile } from 'antd'
 import { api } from '../api/client'
@@ -22,6 +33,41 @@ export default function ExamsPage() {
   useEffect(() => {
     refresh()
   }, [])
+
+  const confirmDelete = async (exam: Exam) => {
+    const submissions = await api.listSubmissions(exam.id)
+    const graded = submissions.filter((s) => s.status === 'completed').length
+    Modal.confirm({
+      title: `删除考试「${exam.name}」？`,
+      okText: '确认删除',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      content: (
+        <div>
+          <p>
+            会一并删除这场考试下的 <b>{submissions.length} 份试卷</b>
+            {graded > 0 && (
+              <>
+                ，其中 <b style={{ color: '#cf1322' }}>{graded} 份已批改完成</b>
+              </>
+            )}
+            ，以及对应的扫描件、参考答案和学情分析。
+          </p>
+          <p style={{ marginBottom: 0 }}>
+            <b>此操作不可恢复。</b>
+            {graded > 0 && '建议先到成绩统计页导出 Excel 备份成绩。'}
+          </p>
+        </div>
+      ),
+      onOk: async () => {
+        const r = await api.deleteExam(exam.id)
+        message.success(
+          `已删除，连同 ${r.deleted_submissions} 份试卷，释放 ${(r.freed_bytes / 1048576).toFixed(1)} MB`,
+        )
+        refresh()
+      },
+    })
+  }
 
   const onSave = async () => {
     if (!name) {
@@ -126,14 +172,7 @@ export default function ExamsPage() {
               render: (_, r: Exam) => (
                 <Space>
                 <Link to={`/exams/${r.id}`}>查看/编辑答案</Link>
-                <Button
-                  size="small"
-                  danger
-                  onClick={async () => {
-                    await api.deleteExam(r.id)
-                    refresh()
-                  }}
-                >
+                <Button size="small" danger onClick={() => confirmDelete(r)}>
                   删除
                 </Button>
                 </Space>
