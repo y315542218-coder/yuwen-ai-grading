@@ -74,6 +74,8 @@ class Exam(TimestampMixin, Base):
     # 开启后每页切成小块，每块不被压缩，清晰度约提升3倍，代价是图片数和输入token变多。
     # 默认关闭（普通模式），密排试卷识别不准时再开。
     hires_tiles: Mapped[bool] = mapped_column(Boolean, default=False)
+    # 模型生成的学情分析（整体评价、薄弱点、教学建议），由统计数据得出
+    analysis: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
     submissions: Mapped[list["Submission"]] = relationship(back_populates="exam")
 

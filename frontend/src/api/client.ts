@@ -3,6 +3,8 @@ import type {
   AnswerKeyItem,
   ClassGroup,
   Exam,
+  ExamAnalysis,
+  ExamStatistics,
   ModelConfig,
   ProviderPreset,
   Student,
@@ -63,6 +65,10 @@ export const api = {
   ) => client.patch<Exam>(`/exams/${id}`, payload).then((r) => r.data),
   importAnswerKey: (id: number) =>
     client.post<Exam>(`/exams/${id}/answer-key/import`).then((r) => r.data),
+  getStatistics: (id: number) =>
+    client.get<ExamStatistics>(`/exams/${id}/statistics`).then((r) => r.data),
+  generateAnalysis: (id: number) =>
+    client.post<ExamAnalysis>(`/exams/${id}/analysis`).then((r) => r.data),
   deleteExam: (id: number) => client.delete(`/exams/${id}`).then((r) => r.data),
 
   // 考试下的学生试卷

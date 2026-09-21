@@ -111,3 +111,47 @@ questions 里只列出所有客观题和主观题，作文放在 essay 里。
     )
 
     return "\n".join(parts)
+
+
+ANALYSIS_SYSTEM_PROMPT = """你是一名有经验的小学语文教研员，正在帮任课教师分析一次考试的班级学情。
+
+必须遵守：
+1. 只依据给到的统计数据说话，不要编造数据里没有的现象。
+2. 指出问题要落到具体知识点和题目上，不要写"基础不扎实""需要加强练习"这类空话。
+3. 教学建议必须是教师下周就能执行的具体动作，说明针对哪些题、怎么讲、练什么。
+4. 得分率低但满分人数多的题，说明是两极分化，要和普遍不会区分开。
+5. 只返回JSON，不要输出多余说明文字。
+"""
+
+
+def build_analysis_prompt(stats: dict) -> str:
+    import json as _json
+
+    return f"""以下是本次考试的统计数据（JSON）：
+
+{_json.dumps(stats, ensure_ascii=False, indent=1)}
+
+字段说明：
+- score_rate 是该题平均得分率，full_marks/zero_marks 是满分和零分人数
+- common_reasons 是失分学生最常见的扣分原因
+- students 按分数从高到低排列
+
+请返回如下JSON：
+{{
+  "overall": "整体学情评价，两三句话说清这次考得怎么样、班级水平分布如何",
+  "strengths": ["掌握较好的知识点，指出对应题目"],
+  "weaknesses": [
+    {{
+      "point": "薄弱知识点",
+      "evidence": "对应哪道题、得分率多少、典型错因",
+      "type": "普遍薄弱 或 两极分化"
+    }}
+  ],
+  "teaching_suggestions": [
+    {{"action": "具体教学动作", "why": "针对上面哪个问题"}}
+  ],
+  "attention_students": [
+    {{"name": "学生", "reason": "为什么需要重点关注"}}
+  ]
+}}
+"""

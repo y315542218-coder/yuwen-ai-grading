@@ -1,3 +1,4 @@
+import datetime as dt
 import shutil
 
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
@@ -7,6 +8,10 @@ from .. import models, schemas
 from ..config import get_settings
 from ..database import get_db
 from ..services import pdf_utils
+from ..services.model_provider import ModelProviderError
+from ..services.prompts import ANALYSIS_SYSTEM_PROMPT, build_analysis_prompt
+from ..services.statistics import build_statistics
+from ..services.workflow import get_active_provider, parse_json_response
 from ..services.reference_parser import extract_text
 
 router = APIRouter(prefix="/exams", tags=["exams"])
@@ -123,6 +128,52 @@ def import_answer_key(exam_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(exam)
     return exam
+
+
+@router.get("/{exam_id}/statistics")
+def get_statistics(exam_id: int, db: Session = Depends(get_db)):
+    """本场考试的成绩统计，纯计算不调模型。"""
+    exam = db.get(models.Exam, exam_id)
+    if exam is None:
+        raise HTTPException(404, "考试不存在")
+
+    submissions = db.query(models.Submission).filter_by(exam_id=exam_id).all()
+    stats = build_statistics(exam, submissions)
+    stats["analysis"] = exam.analysis
+    return stats
+
+
+@router.post("/{exam_id}/analysis")
+async def generate_analysis(exam_id: int, db: Session = Depends(get_db)):
+    """把统计数据交给模型，生成学情评价和教学建议。"""
+    exam = db.get(models.Exam, exam_id)
+    if exam is None:
+        raise HTTPException(404, "考试不存在")
+
+    submissions = db.query(models.Submission).filter_by(exam_id=exam_id).all()
+    stats = build_statistics(exam, submissions)
+    if not stats.get("graded_count"):
+        raise HTTPException(400, "还没有批改完成的试卷，无法分析")
+
+    try:
+        provider = get_active_provider(db)
+    except RuntimeError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    try:
+        raw, _usage = await provider.chat(
+            system_prompt=ANALYSIS_SYSTEM_PROMPT,
+            user_text=build_analysis_prompt(stats),
+        )
+        analysis = parse_json_response(raw)
+    except ModelProviderError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    analysis["generated_at"] = dt.datetime.now().isoformat(timespec="seconds")
+    analysis["based_on_count"] = stats["graded_count"]
+    exam.analysis = analysis
+    db.commit()
+    return analysis
 
 
 @router.delete("/{exam_id}")

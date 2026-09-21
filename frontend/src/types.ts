@@ -103,3 +103,49 @@ export interface Student {
   class_id?: number | null
   parent_contact?: string | null
 }
+
+export interface ExamAnalysis {
+  overall?: string
+  strengths?: string[]
+  weaknesses?: { point: string; evidence: string; type?: string }[]
+  teaching_suggestions?: { action: string; why: string }[]
+  attention_students?: { name: string; reason: string }[]
+  generated_at?: string
+  based_on_count?: number
+}
+
+export interface ExamStatistics {
+  exam_name: string
+  total_score: number
+  configured_total?: number
+  total_mismatch?: boolean
+  submission_count: number
+  graded_count: number
+  comparable_count: number
+  avg_score?: number
+  median_score?: number
+  max_score_got?: number
+  min_score_got?: number
+  pass_rate?: number
+  excellent_rate?: number
+  bands?: Record<string, number>
+  questions: {
+    index: number
+    question_no: string
+    section: string
+    max_score: number
+    avg_score: number
+    score_rate: number | null
+    full_marks: number
+    zero_marks: number
+    common_reasons?: string[]
+  }[]
+  essay?: {
+    avg_score: number
+    max_score: number
+    score_rate: number | null
+    common_problems?: string[]
+  } | null
+  students: { submission_id: number; name: string; score: number; rate: number | null }[]
+  analysis?: ExamAnalysis | null
+}

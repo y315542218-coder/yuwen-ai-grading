@@ -14,6 +14,7 @@ import {
 } from 'antd'
 import { ReloadOutlined, UploadOutlined } from '@ant-design/icons'
 import { Link } from 'react-router-dom'
+import ModeSwitch from '../components/ModeSwitch'
 import { api } from '../api/client'
 import type { Exam, Student, Submission, SubmissionStatus } from '../types'
 
@@ -137,6 +138,12 @@ export default function SubmissionsPage() {
           <Button type="primary" onClick={onGradeAll} loading={grading} disabled={readyCount === 0}>
             批量批改{readyCount > 0 ? `（${readyCount} 份）` : ''}
           </Button>
+          <ModeSwitch
+            exam={exams.find((e) => e.id === examId)}
+            onChanged={(updated) =>
+              setExams((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
+            }
+          />
           <Button icon={<ReloadOutlined />} loading={refreshing} onClick={onManualRefresh}>
             刷新状态
           </Button>
