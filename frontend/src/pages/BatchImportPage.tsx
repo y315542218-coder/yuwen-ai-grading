@@ -194,7 +194,8 @@ export default function BatchImportPage() {
                     {s.image_paths.map((_, i) => (
                       <Image
                         key={i}
-                        src={imageUrl(s.id, i)}
+                        src={imageUrl(s.id, i, true)}
+                        preview={{ src: imageUrl(s.id, i) }}
                         width={s.image_paths.length > 1 ? 66 : 140}
                         style={{ objectFit: 'cover' }}
                       />

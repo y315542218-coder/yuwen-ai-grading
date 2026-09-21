@@ -134,7 +134,12 @@ export default function SubmissionDetailPage() {
         <Image.PreviewGroup>
           <Space wrap>
             {detail.image_paths.map((_, i) => (
-              <Image key={i} src={imageUrl(detail.id, i)} width={220} />
+              <Image
+                key={i}
+                src={imageUrl(detail.id, i, true)}
+                preview={{ src: imageUrl(detail.id, i) }}
+                width={220}
+              />
             ))}
           </Space>
         </Image.PreviewGroup>

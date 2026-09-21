@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..config import get_settings
 from ..database import get_db
-from ..services import pdf_utils
+from ..services import cleanup, image_utils, pdf_utils
 from ..services.workflow import run_grading, summarize_sections
 
 router = APIRouter(tags=["submissions"])
@@ -227,12 +227,14 @@ def clear_images(submission_id: int, db: Session = Depends(get_db)):
     submission = db.get(models.Submission, submission_id)
     if submission is None:
         raise HTTPException(404, "记录不存在")
+    freed = cleanup.remove_files(submission.image_paths or [])
+    cleanup.remove_tiles(submission_id)
     submission.image_paths = []
     submission.status = "draft"
     submission.result = None
     submission.total_score = None
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "freed_bytes": freed}
 
 
 @router.post("/exams/{exam_id}/grade-all")
@@ -278,14 +280,27 @@ def get_submission(submission_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/submissions/{submission_id}/images/{index}")
-def get_submission_image(submission_id: int, index: int, db: Session = Depends(get_db)):
-    """按下标取这份试卷的某一页，供教师边看原卷边复核。"""
+def get_submission_image(
+    submission_id: int, index: int, thumb: bool = False, db: Session = Depends(get_db)
+):
+    """按下标取这份试卷的某一页，供教师边看原卷边复核。
+
+    thumb=true 返回缩略图：列表页每张卡片直接加载原图会让页面卡住。
+    """
     submission = db.get(models.Submission, submission_id)
     if submission is None:
         raise HTTPException(404, "记录不存在")
     paths = submission.image_paths or []
     if index < 0 or index >= len(paths):
         raise HTTPException(404, "页码不存在")
+
+    if thumb:
+        cache = get_settings().storage_dir / "thumbs" / str(submission_id)
+        try:
+            return FileResponse(image_utils.thumbnail(paths[index], cache))
+        except OSError:
+            # 原图损坏或缺失时退回原图，让浏览器自己报错，而不是整页500
+            pass
     return FileResponse(paths[index])
 
 
@@ -371,6 +386,8 @@ def delete_submission(submission_id: int, db: Session = Depends(get_db)):
     submission = db.get(models.Submission, submission_id)
     if submission is None:
         raise HTTPException(404, "记录不存在")
+    freed = cleanup.remove_files(submission.image_paths or [])
+    cleanup.remove_tiles(submission_id)
     db.delete(submission)
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "freed_bytes": freed}

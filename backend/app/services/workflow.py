@@ -12,6 +12,7 @@ from .. import models
 from ..config import get_settings
 from ..crypto import Cryptor
 from ..database import SessionLocal
+from . import cleanup
 from .image_utils import split_for_vision
 from .model_provider import ModelProvider, ModelProviderError
 from .prompts import GRADING_SYSTEM_PROMPT, build_grading_user_prompt
@@ -88,8 +89,7 @@ async def run_grading(submission_id: int) -> None:
 
             # 每页先给整页（把握版面），紧跟它切出的高清分块（看清笔迹细节）
             if exam.hires_tiles:
-                settings = get_settings()
-                tile_dir = settings.storage_dir / "tiles" / str(submission.id)
+                tile_dir = cleanup.tile_dir(submission.id)
                 expanded: list[str] = []
                 for page in student_images:
                     expanded.append(page)
@@ -160,4 +160,7 @@ async def run_grading(submission_id: int) -> None:
 
         db.commit()
     finally:
+        # 切块图只在调模型那一刻有用，批改结束（成功或失败）都该清掉，
+        # 否则高清模式每批一次就多出几百MB
+        cleanup.remove_tiles(submission_id)
         db.close()

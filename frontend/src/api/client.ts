@@ -14,8 +14,8 @@ import type {
 
 const client = axios.create({ baseURL: '/api' })
 
-export const imageUrl = (submissionId: number, index: number) =>
-  `/api/submissions/${submissionId}/images/${index}`
+export const imageUrl = (submissionId: number, index: number, thumb = false) =>
+  `/api/submissions/${submissionId}/images/${index}${thumb ? '?thumb=true' : ''}`
 
 export const api = {
   // 模型配置
@@ -113,6 +113,16 @@ export const api = {
     },
   ) => client.patch<SubmissionDetail>(`/submissions/${id}/score`, payload).then((r) => r.data),
   deleteSubmission: (id: number) => client.delete(`/submissions/${id}`).then((r) => r.data),
+
+  // 存储
+  getStorageUsage: () =>
+    client
+      .get<{ total_bytes: number; orphan_bytes: number; orphan_count: number }>('/storage')
+      .then((r) => r.data),
+  cleanupStorage: () =>
+    client
+      .post<{ removed_count: number; freed_bytes: number }>('/storage/cleanup')
+      .then((r) => r.data),
 
   // 班级与学生
   listClasses: () => client.get<ClassGroup[]>('/class-groups').then((r) => r.data),

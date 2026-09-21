@@ -17,6 +17,8 @@ import type { ModelConfig, ProviderPreset } from '../types'
 
 const { Title, Paragraph, Text } = Typography
 
+const mb = (bytes: number) => `${(bytes / 1048576).toFixed(1)} MB`
+
 const PROVIDER_LABELS: Record<string, string> = {
   deepseek: 'DeepSeek',
   doubao: '豆包（火山方舟）',
@@ -30,6 +32,12 @@ export default function ModelConfigPage() {
   const [saving, setSaving] = useState(false)
   const [testingId, setTestingId] = useState<number | null>(null)
   const [updating, setUpdating] = useState(false)
+  const [usage, setUsage] = useState<{
+    total_bytes: number
+    orphan_bytes: number
+    orphan_count: number
+  }>()
+  const [cleaning, setCleaning] = useState(false)
   const [form] = Form.useForm()
 
   const refresh = () => {
@@ -45,6 +53,7 @@ export default function ModelConfigPage() {
       }
     })
     refresh()
+    api.getStorageUsage().then(setUsage)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -180,6 +189,45 @@ export default function ModelConfigPage() {
           </Space>
         ) : (
           <Text type="secondary">请先在上方保存一个模型配置</Text>
+        )}
+      </Card>
+
+      <Card
+        title="磁盘占用"
+        extra={
+          <Button
+            loading={cleaning}
+            disabled={!usage?.orphan_count}
+            onClick={async () => {
+              setCleaning(true)
+              try {
+                const r = await api.cleanupStorage()
+                message.success(`已清理 ${r.removed_count} 个文件，释放 ${mb(r.freed_bytes)}`)
+                setUsage(await api.getStorageUsage())
+              } finally {
+                setCleaning(false)
+              }
+            }}
+          >
+            清理可回收文件
+          </Button>
+        }
+      >
+        {usage ? (
+          <Space orientation="vertical" size={4}>
+            <Text>
+              试卷图片共占用 <b>{mb(usage.total_bytes)}</b>
+            </Text>
+            <Text type={usage.orphan_count ? 'warning' : 'secondary'}>
+              其中 {usage.orphan_count} 个文件已无记录引用，可回收 <b>{mb(usage.orphan_bytes)}</b>
+            </Text>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              删除试卷或清空图片后留下的旧文件，以及缩略图缓存。清理不影响现有批改结果，
+              缩略图会在下次查看时自动重新生成。
+            </Text>
+          </Space>
+        ) : (
+          <Text type="secondary">读取中…</Text>
         )}
       </Card>
 

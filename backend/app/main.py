@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .database import Base, engine, ensure_columns
-from .routers import classes, exams, model_configs, submissions
+from .routers import classes, exams, model_configs, storage, submissions
 
 Base.metadata.create_all(bind=engine)
 ensure_columns()
@@ -24,6 +24,7 @@ app.include_router(model_configs.router)
 app.include_router(exams.router)
 app.include_router(submissions.router)
 app.include_router(classes.router)
+app.include_router(storage.router)
 
 
 @app.get("/health")

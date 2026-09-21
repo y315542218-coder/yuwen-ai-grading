@@ -18,6 +18,32 @@ MAX_PIXELS = int(1300 * 1300 * 0.95)
 OVERLAP = 0.08
 
 
+THUMB_WIDTH = 480
+
+
+def thumbnail(image_path: str | Path, cache_dir: Path) -> Path:
+    """生成并缓存缩略图。
+
+    列表页每张卡片直接加载原图（一张扫描件近10MB），20份就是200MB，页面会卡住。
+    缩略图按需生成一次，之后复用。
+    """
+    path = Path(image_path)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    dest = cache_dir / f"{path.stem}_thumb.jpg"
+
+    # 原图更新过（重新上传同名文件）就重新生成
+    if dest.exists() and dest.stat().st_mtime >= path.stat().st_mtime:
+        return dest
+
+    with Image.open(path) as im:
+        im = im.convert("RGB")
+        ratio = THUMB_WIDTH / im.width
+        if ratio < 1:
+            im = im.resize((THUMB_WIDTH, round(im.height * ratio)), Image.LANCZOS)
+        im.save(dest, "JPEG", quality=80)
+    return dest
+
+
 def plan_grid(width: int, height: int, max_pixels: int = MAX_PIXELS) -> tuple[int, int]:
     """算出切成几列几行，使每块像素数不超过上限，且尽量接近正方形。"""
     cols = rows = 1
