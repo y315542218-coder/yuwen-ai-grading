@@ -53,6 +53,99 @@ def add_students_to_exam(
     return created
 
 
+@router.post("/exams/{exam_id}/bulk-upload", response_model=list[schemas.SubmissionOut])
+def bulk_upload(exam_id: int, files: list[UploadFile], db: Session = Depends(get_db)):
+    """批量导入：每张图片先各自成为一份试卷，之后可以拖拽合并、再挑学生。
+
+    适合小测验这种"先扫一摞、回头再对人"的场景。
+    """
+    exam = db.get(models.Exam, exam_id)
+    if exam is None:
+        raise HTTPException(404, "考试不存在")
+
+    settings = get_settings()
+    created: list[models.Submission] = []
+    for file in files:
+        submission = models.Submission(exam_id=exam_id, image_paths=[], status="draft")
+        db.add(submission)
+        db.flush()
+
+        target_dir = settings.storage_dir / "submissions" / str(exam_id) / str(submission.id)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        dest = target_dir / f"{int(time.time() * 1000)}_{file.filename}"
+        with dest.open("wb") as f:
+            shutil.copyfileobj(file.file, f)
+
+        submission.image_paths = [str(dest)]
+        submission.status = "pending"
+        created.append(submission)
+
+    db.commit()
+    for s in created:
+        db.refresh(s)
+    return created
+
+
+@router.post("/submissions/{submission_id}/merge", response_model=schemas.SubmissionOut)
+def merge_submissions(
+    submission_id: int, payload: schemas.MergeIn, db: Session = Depends(get_db)
+):
+    """把若干份试卷的图片并入这一份，按传入顺序追加到末尾，原记录随后删除。"""
+    target = db.get(models.Submission, submission_id)
+    if target is None:
+        raise HTTPException(404, "记录不存在")
+
+    paths = list(target.image_paths or [])
+    for source_id in payload.source_ids:
+        if source_id == submission_id:
+            continue
+        source = db.get(models.Submission, source_id)
+        if source is None:
+            raise HTTPException(404, f"记录 {source_id} 不存在")
+        if source.exam_id != target.exam_id:
+            raise HTTPException(400, "不能合并不同考试的试卷")
+        paths.extend(source.image_paths or [])
+        db.delete(source)
+
+    target.image_paths = paths
+    target.status = "pending" if paths else "draft"
+    # 页数变了，之前的批改结果作废
+    target.result = None
+    target.total_score = None
+    db.commit()
+    db.refresh(target)
+    return target
+
+
+@router.patch("/submissions/{submission_id}", response_model=schemas.SubmissionOut)
+def update_submission(
+    submission_id: int, payload: schemas.SubmissionUpdateIn, db: Session = Depends(get_db)
+):
+    """指定或取消这份试卷对应的学生。"""
+    submission = db.get(models.Submission, submission_id)
+    if submission is None:
+        raise HTTPException(404, "记录不存在")
+
+    data = payload.model_dump(exclude_unset=True)
+    if "student_id" in data:
+        student_id = data["student_id"]
+        if student_id is None:
+            submission.student_id = None
+            submission.student_name = None
+        else:
+            student = db.get(models.Student, student_id)
+            if student is None:
+                raise HTTPException(404, "学生不存在")
+            submission.student_id = student_id
+            submission.student_name = student.name
+    if "student_name" in data and data.get("student_id") is None:
+        submission.student_name = data["student_name"]
+
+    db.commit()
+    db.refresh(submission)
+    return submission
+
+
 @router.post("/submissions/{submission_id}/images", response_model=schemas.SubmissionOut)
 def upload_images(
     submission_id: int, files: list[UploadFile], db: Session = Depends(get_db)

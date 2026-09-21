@@ -112,3 +112,12 @@ class StudentBatchIn(BaseModel):
 
 class AddStudentsIn(BaseModel):
     student_ids: list[int]
+
+
+class MergeIn(BaseModel):
+    source_ids: list[int]
+
+
+class SubmissionUpdateIn(BaseModel):
+    student_id: Optional[int] = None
+    student_name: Optional[str] = None

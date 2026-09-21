@@ -5,6 +5,7 @@ import ExamsPage from './pages/ExamsPage'
 import ExamDetailPage from './pages/ExamDetailPage'
 import StudentsPage from './pages/StudentsPage'
 import SubmissionsPage from './pages/SubmissionsPage'
+import BatchImportPage from './pages/BatchImportPage'
 import SubmissionDetailPage from './pages/SubmissionDetailPage'
 
 const { Header, Content, Sider } = Layout
@@ -14,6 +15,7 @@ const NAV_ITEMS = [
   { key: '/exams', label: <Link to="/exams">考试管理</Link> },
   { key: '/students', label: <Link to="/students">学生管理</Link> },
   { key: '/submissions', label: <Link to="/submissions">批改试卷</Link> },
+  { key: '/batch', label: <Link to="/batch">批量导入</Link> },
 ]
 
 function App() {
@@ -39,6 +41,7 @@ function App() {
             <Route path="/exams/:id" element={<ExamDetailPage />} />
             <Route path="/students" element={<StudentsPage />} />
             <Route path="/submissions" element={<SubmissionsPage />} />
+            <Route path="/batch" element={<BatchImportPage />} />
             <Route path="/submissions/:id" element={<SubmissionDetailPage />} />
           </Routes>
         </Content>

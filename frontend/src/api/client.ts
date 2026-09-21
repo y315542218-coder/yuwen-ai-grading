@@ -76,6 +76,17 @@ export const api = {
   },
   clearImages: (submissionId: number) =>
     client.delete(`/submissions/${submissionId}/images`).then((r) => r.data),
+  bulkUpload: (examId: number, files: File[]) => {
+    const form = new FormData()
+    files.forEach((f) => form.append('files', f))
+    return client.post<Submission[]>(`/exams/${examId}/bulk-upload`, form).then((r) => r.data)
+  },
+  mergeSubmissions: (targetId: number, sourceIds: number[]) =>
+    client
+      .post<Submission>(`/submissions/${targetId}/merge`, { source_ids: sourceIds })
+      .then((r) => r.data),
+  setSubmissionStudent: (id: number, studentId: number | null) =>
+    client.patch<Submission>(`/submissions/${id}`, { student_id: studentId }).then((r) => r.data),
   gradeAll: (examId: number) =>
     client.post<{ queued: number }>(`/exams/${examId}/grade-all`).then((r) => r.data),
   listSubmissions: (examId?: number) =>
